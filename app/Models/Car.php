@@ -107,25 +107,70 @@ class Car extends Model
     }
 
     /**
-     * Average consumption in L/100km: every fueling covers the distance since
-     * the previous one, and the first one covers the distance since the car's
-     * initial odometer - the same baseline FuelingController writes against.
+     * Consumption for each stretch between two known odometer readings, in
+     * date order. The first stretch runs from the car's initial odometer - the
+     * same baseline FuelingController writes against.
+     *
+     * A fueling recorded without a distance still contributes its litres to
+     * the stretch it falls in. Dropping them would understate consumption,
+     * because the distance they covered is part of the next reading either way.
+     *
+     * @return list<array{date: mixed, consumption: float, liters: float, distance: int}>
+     */
+    public function consumptionStretches(): array
+    {
+        $fuelings = $this->fuelings->sortBy([['date', 'asc'], ['id', 'asc']])->values();
+
+        $stretches = [];
+        $lastReading = $this->initial_odometer;
+        $liters = 0.0;
+
+        foreach ($fuelings as $fueling) {
+            $liters += (float) $fueling->liters;
+
+            if ($fueling->odometer_reading === null) {
+                continue;
+            }
+
+            $distance = $fueling->odometer_reading - $lastReading;
+
+            // A reading that doesn't advance closes no stretch; its litres roll
+            // into the next one rather than being lost.
+            if ($distance <= 0) {
+                continue;
+            }
+
+            $stretches[] = [
+                'date' => $fueling->date,
+                'consumption' => round(($liters / $distance) * 100, 2),
+                'liters' => $liters,
+                'distance' => $distance,
+            ];
+
+            $lastReading = $fueling->odometer_reading;
+            $liters = 0.0;
+        }
+
+        return $stretches;
+    }
+
+    /**
+     * Average consumption in L/100km across every measurable stretch. Litres
+     * bought after the last known reading are left out - there is no distance
+     * to hold them against yet.
      */
     public function getAverageConsumptionAttribute()
     {
-        $fuelings = $this->fuelings->sortBy('odometer_reading')->values();
+        $stretches = $this->consumptionStretches();
 
-        if ($fuelings->isEmpty()) {
+        if ($stretches === []) {
             return 0;
         }
 
-        $distance = $fuelings->last()->odometer_reading - $this->initial_odometer;
+        $liters = array_sum(array_column($stretches, 'liters'));
+        $distance = array_sum(array_column($stretches, 'distance'));
 
-        if ($distance <= 0) {
-            return 0;
-        }
-
-        return round(($fuelings->sum('liters') / $distance) * 100, 2);
+        return round(($liters / $distance) * 100, 2);
     }
 
     /**

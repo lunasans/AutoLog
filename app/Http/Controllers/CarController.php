@@ -31,33 +31,23 @@ class CarController extends Controller
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }]);
 
-        // Fueling Data for Chart (Sorted Ascending for Timeline)
-        $chartData = $car->fuelings->sortBy([['date', 'asc'], ['odometer_reading', 'asc']])->values();
-
         $fuelLabels = [];
         $fuelConsumption = [];
 
-        // The first fueling is measured against the car's initial odometer -
-        // the same baseline FuelingController uses when writing the entry - so
-        // a car with a single fueling still charts a data point.
-        for ($i = 0; $i < count($chartData); $i++) {
-            $current = $chartData[$i];
-            $baseOdometer = $i === 0 ? $car->initial_odometer : $chartData[$i - 1]->odometer_reading;
-            $distance = $current->odometer_reading - $baseOdometer;
-
-            if ($distance > 0) {
-                $consumption = ($current->liters / $distance) * 100;
-                $fuelLabels[] = \Carbon\Carbon::parse($current->date)->format('d.m.');
-                $fuelConsumption[] = round($consumption, 2);
-            }
+        // Shares its arithmetic with the average shown on the dashboard, so the
+        // chart and the headline figure can never disagree.
+        foreach ($car->consumptionStretches() as $stretch) {
+            $fuelLabels[] = \Carbon\Carbon::parse($stretch['date'])->format('d.m.');
+            $fuelConsumption[] = $stretch['consumption'];
         }
 
         // Unlike consumption, a price needs no distance to measure against, so
-        // every fueling contributes a point - including the very first.
+        // every fueling contributes a point - including ones recorded without
+        // a mileage, and the very first one.
         $priceLabels = [];
         $pricePerLiter = [];
 
-        foreach ($chartData as $fueling) {
+        foreach ($car->fuelings->sortBy([['date', 'asc'], ['id', 'asc']])->values() as $fueling) {
             if ($fueling->price_per_liter !== null) {
                 $priceLabels[] = \Carbon\Carbon::parse($fueling->date)->format('d.m.y');
                 $pricePerLiter[] = $fueling->price_per_liter;

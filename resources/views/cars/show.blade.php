@@ -58,8 +58,11 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
                     <input type="number" step="0.01" name="price_total" placeholder="Gesamtpreis €" required>
-                    <input type="number" step="0.1" name="trip_km" placeholder="Gefahrene KM" required>
+                    <input type="number" step="0.1" name="trip_km" placeholder="Gefahrene KM (optional)">
                 </div>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    Ohne Kilometer wird der Eintrag für Kosten und Spritpreis gezählt, aber nicht für den Verbrauch.
+                </p>
                 <div class="form-group" style="margin-top: 1rem;">
                     <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (PDF oder Bild, optional)</label>
                     <input type="file" name="receipt" id="fuel-receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
@@ -156,7 +159,9 @@
                                 <td style="padding: 1rem 1.5rem;">{{ \Carbon\Carbon::parse($fuel->date)->format('d.m.Y') }}</td>
                                 <td style="padding: 1rem 1.5rem; font-weight: 600;">{{ number_format($fuel->liters, 2, ',', '.') }} L</td>
                                 <td style="padding: 1rem 1.5rem;">{{ number_format($fuel->price_total, 2, ',', '.') }} €</td>
-                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)">{{ number_format($fuel->odometer_reading, 0, ',', '.') }}</td>
+                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)" title="{{ $fuel->odometer_reading === null ? 'Ohne Kilometerangabe erfasst' : '' }}">
+                                    {{ $fuel->odometer_reading === null ? '–' : number_format($fuel->odometer_reading, 0, ',', '.') }}
+                                </td>
                                 <td style="padding: 1rem 1.5rem; text-align: right;">
                                     @if($fuel->hasReceipt())
                                         <a href="{{ route('fuelings.receipt', $fuel) }}" title="Rechnung öffnen" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
