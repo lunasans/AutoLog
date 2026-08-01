@@ -14,8 +14,9 @@ class Car extends Model
 
     public function setHuDueAtAttribute($value)
     {
-        if (!$value) {
+        if (! $value) {
             $this->attributes['hu_due_at'] = null;
+
             return;
         }
 
@@ -33,7 +34,7 @@ class Car extends Model
                 'Januar' => '01', 'Februar' => '02', 'März' => '03', 'April' => '04',
                 'Mai' => '05', 'Juni' => '06', 'Juli' => '07', 'August' => '08',
                 'September' => '09', 'Oktober' => '10', 'November' => '11', 'Dezember' => '12',
-                'Jan' => '01', 'Feb' => '02', 'Mär' => '03', 'Apr' => '04', 'Jun' => '06', 'Jul' => '07', 'Aug' => '08', 'Sep' => '09', 'Okt' => '10', 'Nov' => '11', 'Dez' => '12'
+                'Jan' => '01', 'Feb' => '02', 'Mär' => '03', 'Apr' => '04', 'Jun' => '06', 'Jul' => '07', 'Aug' => '08', 'Sep' => '09', 'Okt' => '10', 'Nov' => '11', 'Dez' => '12',
             ];
 
             foreach ($germanMonths as $de => $num) {
@@ -41,6 +42,7 @@ class Car extends Model
                     $year = preg_replace('/[^0-9]/', '', $value);
                     if (strlen($year) == 4) {
                         $this->attributes['hu_due_at'] = "$year-$num-01";
+
                         return;
                     }
                 }
@@ -50,6 +52,7 @@ class Car extends Model
             $this->attributes['hu_due_at'] = null;
         }
     }
+
     protected static function booted(): void
     {
         // Fuelings and repairs are removed by the database cascade, which skips
@@ -79,6 +82,7 @@ class Car extends Model
     {
         return $this->hasMany(Repair::class);
     }
+
     /**
      * Get the manufacturer logo URL based on brand name.
      */
@@ -86,24 +90,50 @@ class Car extends Model
     {
         $brand = strtolower(trim($this->brand));
         $brand = str_replace([' ', '_'], '-', $brand);
-        
+
         // Simple mapping for common variations
         $mapping = [
             'vw' => 'volkswagen',
             'mercedes-benz' => 'mercedes',
             'mercedes benz' => 'mercedes',
         ];
-        
+
         $brand = $mapping[$brand] ?? $brand;
 
         // Only plain brand slugs may end up in the outgoing URL.
-        if (!preg_match('/^[a-z0-9-]+$/', $brand)) {
+        if (! preg_match('/^[a-z0-9-]+$/', $brand)) {
             return $this->logo_fallback;
         }
 
         // Using a reliable CDN for car logos (e.g. clearbit or a similar service)
         // Note: This is an example, in a real app you might use a specific car logo API
         return "https://logo.clearbit.com/{$brand}.com";
+    }
+
+    /**
+     * The distance each fueling accounts for, keyed by its id - the figure the
+     * user actually typed in, recovered from the readings we store. Null where
+     * an entry was recorded without one.
+     *
+     * @return array<int, float|null>
+     */
+    public function tripDistances(): array
+    {
+        $trips = [];
+        $lastReading = $this->initial_odometer;
+
+        foreach ($this->fuelings->sortBy([['date', 'asc'], ['id', 'asc']]) as $fueling) {
+            if ($fueling->odometer_reading === null) {
+                $trips[$fueling->id] = null;
+
+                continue;
+            }
+
+            $trips[$fueling->id] = (float) ($fueling->odometer_reading - $lastReading);
+            $lastReading = $fueling->odometer_reading;
+        }
+
+        return $trips;
     }
 
     /**

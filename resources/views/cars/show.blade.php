@@ -167,7 +167,7 @@
                             <th style="padding: 1rem 1.5rem;">Datum</th>
                             <th style="padding: 1rem 1.5rem;">Liter</th>
                             <th style="padding: 1rem 1.5rem;">Preis</th>
-                            <th style="padding: 1rem 1.5rem;">KM</th>
+                            <th style="padding: 1rem 1.5rem;">Strecke</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -176,8 +176,10 @@
                                 <td style="padding: 1rem 1.5rem;">{{ \Carbon\Carbon::parse($fuel->date)->format('d.m.Y') }}</td>
                                 <td style="padding: 1rem 1.5rem; font-weight: 600;">{{ number_format($fuel->liters, 2, ',', '.') }} L</td>
                                 <td style="padding: 1rem 1.5rem;">{{ number_format($fuel->price_total, 2, ',', '.') }} €</td>
-                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)" title="{{ $fuel->odometer_reading === null ? 'Ohne Kilometerangabe erfasst' : '' }}">
-                                    {{ $fuel->odometer_reading === null ? '–' : number_format($fuel->odometer_reading, 0, ',', '.') }}
+                                @php($trip = $tripDistances[$fuel->id] ?? null)
+                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)"
+                                    title="{{ $trip === null ? 'Ohne Kilometerangabe erfasst' : 'Kilometerstand danach: ' . number_format($fuel->odometer_reading, 0, ',', '.') }}">
+                                    {{ $trip === null ? '–' : number_format($trip, 0, ',', '.') . ' km' }}
                                 </td>
                                 <td style="padding: 1rem 1.5rem; text-align: right;">
                                     @if($fuel->hasReceipt())
