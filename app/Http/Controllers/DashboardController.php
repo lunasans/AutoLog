@@ -2,29 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Car;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $cars = Car::with(['fuelings', 'repairs'])->get();
+        $cars = $request->user()->cars()->with(['fuelings', 'repairs'])->get();
 
         $stats = $cars->map(function ($car) {
             $totalFuel = $car->fuelings->sum('price_total');
-            $totalLiters = $car->fuelings->sum('liters');
             $totalRepairs = $car->repairs->sum('cost');
-            
-            // Calculate avg consumption (L/100km)
-            $avgConsumption = 0;
-            if ($car->fuelings->count() > 0) {
-                $lastOdo = $car->fuelings->max('odometer_reading');
-                $distance = $lastOdo - $car->initial_odometer;
-                if ($distance > 0) {
-                    $avgConsumption = ($totalLiters / $distance) * 100;
-                }
-            }
 
             // Safely calculate HU urgency
             $huUrgent = false;
@@ -39,7 +27,7 @@ class DashboardController extends Controller
             return [
                 'car' => $car,
                 'total_spent' => $totalFuel + $totalRepairs,
-                'avg_consumption' => round($avgConsumption, 2),
+                'avg_consumption' => $car->average_consumption,
                 'hu_urgent' => $huUrgent,
             ];
         });

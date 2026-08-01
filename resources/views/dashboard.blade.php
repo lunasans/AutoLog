@@ -27,7 +27,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <img src="{{ $stat['car']->logo_url }}" 
-                             onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($stat['car']->brand) }}&background=6366f1&color=fff&size=64'" 
+                             onerror="this.onerror=null;this.src='{{ $stat['car']->logo_fallback }}'"
                              alt="Logo" 
                              style="width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
                         <div>
@@ -73,7 +73,7 @@
                 </div>
 
                 <div id="fuel-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
-                    <form action="{{ route('fuelings.store', $stat['car']) }}" method="POST">
+                    <form action="{{ route('fuelings.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                             <input type="number" step="0.01" name="liters" placeholder="Liter" required>
@@ -83,12 +83,16 @@
                             <input type="number" step="0.01" name="price_total" placeholder="Preis €" required>
                             <input type="number" step="0.1" name="trip_km" placeholder="Trip KM" required>
                         </div>
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (optional)</label>
+                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                        </div>
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
                     </form>
                 </div>
 
                 <div id="repair-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
-                    <form action="{{ route('repairs.store', $stat['car']) }}" method="POST">
+                    <form action="{{ route('repairs.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                             <input type="text" name="description" placeholder="Was wurde gemacht?" required style="grid-column: span 2;">
@@ -99,6 +103,10 @@
                         </div>
                         <div class="form-group" style="margin-top: 0.75rem;">
                             <input type="number" name="odometer_reading" placeholder="KM-Stand (Optional)">
+                        </div>
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (optional)</label>
+                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
                         </div>
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Service loggen</button>
                     </form>

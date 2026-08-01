@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
@@ -23,7 +24,9 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'avatar' => ['nullable', 'image', 'max:2048'],
+            // Explicit raster types only - "image" would also allow SVG,
+            // which can carry scripts and would run on our own origin.
+            'avatar' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         if ($request->hasFile('avatar')) {
@@ -48,6 +51,10 @@ class ProfileController extends Controller
         auth()->user()->update([
             'password' => Hash::make($validated['password']),
         ]);
+
+        // Invalidate any other session that still holds the old credentials.
+        Auth::logoutOtherDevices($validated['password']);
+        $request->session()->regenerate();
 
         return back()->with('success', 'Passwort erfolgreich geändert.');
     }

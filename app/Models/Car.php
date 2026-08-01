@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Car extends Model
 {
-    protected $fillable = ['brand', 'model', 'year', 'license_plate', 'vin', 'hu_due_at', 'initial_odometer'];
+    protected $fillable = ['user_id', 'brand', 'model', 'year', 'license_plate', 'vin', 'hu_due_at', 'initial_odometer'];
 
     protected $casts = [
         'hu_due_at' => 'date',
@@ -50,6 +50,26 @@ class Car extends Model
             $this->attributes['hu_due_at'] = null;
         }
     }
+    protected static function booted(): void
+    {
+        // Fuelings and repairs are removed by the database cascade, which skips
+        // model events - so their uploaded receipts are cleaned up here.
+        static::deleting(function (Car $car) {
+            foreach ($car->fuelings as $fueling) {
+                $fueling->deleteReceipt();
+            }
+
+            foreach ($car->repairs as $repair) {
+                $repair->deleteReceipt();
+            }
+        });
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function fuelings()
     {
         return $this->hasMany(Fueling::class);
@@ -75,9 +95,46 @@ class Car extends Model
         ];
         
         $brand = $mapping[$brand] ?? $brand;
-        
+
+        // Only plain brand slugs may end up in the outgoing URL.
+        if (!preg_match('/^[a-z0-9-]+$/', $brand)) {
+            return $this->logo_fallback;
+        }
+
         // Using a reliable CDN for car logos (e.g. clearbit or a similar service)
         // Note: This is an example, in a real app you might use a specific car logo API
         return "https://logo.clearbit.com/{$brand}.com";
+    }
+
+    /**
+     * Average consumption in L/100km using the full-tank method: every fueling
+     * covers the distance since the previous one, so the first fueling only
+     * serves as a starting point and its liters are not counted.
+     */
+    public function getAverageConsumptionAttribute()
+    {
+        $fuelings = $this->fuelings->sortBy('odometer_reading')->values();
+
+        if ($fuelings->count() < 2) {
+            return 0;
+        }
+
+        $distance = $fuelings->last()->odometer_reading - $fuelings->first()->odometer_reading;
+
+        if ($distance <= 0) {
+            return 0;
+        }
+
+        $liters = $fuelings->slice(1)->sum('liters');
+
+        return round(($liters / $distance) * 100, 2);
+    }
+
+    /**
+     * Local placeholder used when no remote logo can be loaded.
+     */
+    public function getLogoFallbackAttribute()
+    {
+        return \App\Support\InitialsAvatar::url($this->brand);
     }
 }

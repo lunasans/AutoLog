@@ -11,7 +11,7 @@
             </a>
             <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 3rem;">
                 <img src="{{ $car->logo_url }}"
-                     onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($car->brand) }}&background=6366f1&color=fff&size=128'"
+                     onerror="this.onerror=null;this.src='{{ $car->logo_fallback }}'"
                      alt="Logo"
                      style="width: 80px; height: 80px; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
                 <div>
@@ -50,7 +50,7 @@
     <div id="fuel-detail" style="display: none; margin-bottom: 2rem;">
         <div class="glass-panel" style="max-width: 600px;">
             <h3 style="margin-bottom: 1.5rem;">Tanken erfassen</h3>
-            <form action="{{ route('fuelings.store', $car) }}" method="POST">
+            <form action="{{ route('fuelings.store', $car) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <input type="number" step="0.01" name="liters" placeholder="Liter" required>
@@ -60,6 +60,10 @@
                     <input type="number" step="0.01" name="price_total" placeholder="Gesamtpreis €" required>
                     <input type="number" step="0.1" name="trip_km" placeholder="Gefahrene KM" required>
                 </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (PDF oder Bild, optional)</label>
+                    <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
             </form>
         </div>
@@ -68,7 +72,7 @@
     <div id="repair-detail" style="display: none; margin-bottom: 2rem;">
         <div class="glass-panel" style="max-width: 600px;">
             <h3 style="margin-bottom: 1.5rem;">Service/Reparatur erfassen</h3>
-            <form action="{{ route('repairs.store', $car) }}" method="POST">
+            <form action="{{ route('repairs.store', $car) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="form-group">
                     <input type="text" name="description" placeholder="Was wurde gemacht?" required>
@@ -79,6 +83,10 @@
                 </div>
                 <div class="form-group" style="margin-top: 1rem;">
                     <input type="number" name="odometer_reading" placeholder="Kilometerstand (Optional)">
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (PDF oder Bild, optional)</label>
+                    <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Loggen</button>
             </form>
@@ -124,7 +132,12 @@
                                 <td style="padding: 1rem 1.5rem;">{{ number_format($fuel->price_total, 2, ',', '.') }} €</td>
                                 <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)">{{ number_format($fuel->odometer_reading, 0, ',', '.') }}</td>
                                 <td style="padding: 1rem 1.5rem; text-align: right;">
-                                    <form action="{{ route('fuelings.destroy', $fuel) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')">
+                                    @if($fuel->hasReceipt())
+                                        <a href="{{ route('fuelings.receipt', $fuel) }}" title="Rechnung öffnen" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
+                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                        </a>
+                                    @endif
+                                    <form action="{{ route('fuelings.destroy', $fuel) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')" style="display: inline-block;">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='var(--danger)'; this.style.background='rgba(244, 63, 94, 0.1)'" onmouseout="this.style.color='var(--text-secondary)'; this.style.background='none'">
@@ -172,7 +185,12 @@
                                     {{ $repair->odometer_reading ? number_format($repair->odometer_reading, 0, ',', '.') : '-' }}
                                 </td>
                                 <td style="padding: 1rem 1.5rem; text-align: right;">
-                                    <form action="{{ route('repairs.destroy', $repair) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')">
+                                    @if($repair->hasReceipt())
+                                        <a href="{{ route('repairs.receipt', $repair) }}" title="Rechnung öffnen" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
+                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                        </a>
+                                    @endif
+                                    <form action="{{ route('repairs.destroy', $repair) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')" style="display: inline-block;">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='var(--danger)'; this.style.background='rgba(244, 63, 94, 0.1)'" onmouseout="this.style.color='var(--text-secondary)'; this.style.background='none'">

@@ -24,8 +24,13 @@ class User extends Authenticatable
         'avatar',
     ];
 
+    public function cars()
+    {
+        return $this->hasMany(Car::class);
+    }
+
     /**
-     * Get the user's avatar URL or a default UI Avatar.
+     * Get the user's avatar URL or a locally generated initials placeholder.
      */
     public function getAvatarUrlAttribute()
     {
@@ -33,7 +38,7 @@ class User extends Authenticatable
             return asset('storage/' . $this->avatar);
         }
         
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=6366f1&color=fff';
+        return \App\Support\InitialsAvatar::url($this->name);
     }
 
     /**
