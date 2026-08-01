@@ -3,7 +3,10 @@
 namespace App\Services\Receipts;
 
 use Anthropic\Client;
+use Anthropic\Core\Exceptions\BadRequestException;
+use Anthropic\Messages\Message;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -23,17 +26,6 @@ class ClaudeDocumentReader
     ) {}
 
     /**
-     * Effort is model-specific: Haiku 4.5 rejects the whole request with a 400
-     * rather than ignoring it, so it has to be omitted rather than defaulted.
-     */
-    private function outputConfig(array $schema): array
-    {
-        $config = ['format' => ['type' => 'json_schema', 'schema' => $schema]];
-
-        return $this->effort === null ? $config : ['effort' => $this->effort] + $config;
-    }
-
-    /**
      * Thinking is on by default and counts against maxTokens together with the
      * answer, so this has to cover reading the document as well as writing the
      * result. A multi-page scan needs far more room than a till receipt, and
@@ -41,18 +33,51 @@ class ClaudeDocumentReader
      */
     private const MAX_TOKENS = 8192;
 
+    private function outputConfig(array $schema, ?string $effort): array
+    {
+        $config = ['format' => ['type' => 'json_schema', 'schema' => $schema]];
+
+        return $effort === null ? $config : ['effort' => $effort] + $config;
+    }
+
+    /** Remembered per model, so switching models re-tests rather than assumes. */
+    private function effortRejectedKey(): string
+    {
+        return 'anthropic:effort-unsupported:'.$this->model;
+    }
+
+    private function effortToSend(): ?string
+    {
+        return Cache::get($this->effortRejectedKey()) ? null : $this->effort;
+    }
+
     public function read(UploadedFile $file, string $prompt, array $schema): ?array
     {
+        $effort = $this->effortToSend();
+
         try {
-            $response = $this->client->messages->create(
-                maxTokens: self::MAX_TOKENS,
-                model: $this->model,
-                outputConfig: $this->outputConfig($schema),
-                messages: [[
-                    'role' => 'user',
-                    'content' => [$this->fileBlock($file), ['type' => 'text', 'text' => $prompt]],
-                ]],
-            );
+            $response = $this->send($file, $prompt, $schema, $effort);
+        } catch (BadRequestException $e) {
+            // Not every model accepts effort - Haiku 4.5 rejects the request
+            // outright instead of ignoring it. Rather than making the operator
+            // keep a config flag in step with the model they picked, drop the
+            // parameter and remember that this model won't take it.
+            if ($effort === null || ! str_contains($e->getMessage(), 'effort')) {
+                Log::warning('Document could not be read', ['exception' => $e]);
+
+                return null;
+            }
+
+            Cache::forever($this->effortRejectedKey(), true);
+            Log::info('Model rejected the effort parameter, retrying without it', ['model' => $this->model]);
+
+            try {
+                $response = $this->send($file, $prompt, $schema, null);
+            } catch (\Throwable $retry) {
+                Log::warning('Document could not be read', ['exception' => $retry]);
+
+                return null;
+            }
         } catch (\Throwable $e) {
             Log::warning('Document could not be read', ['exception' => $e]);
 
@@ -87,6 +112,20 @@ class ClaudeDocumentReader
         }
 
         return $data;
+    }
+
+    /** Protected rather than private so tests can stand in for the SDK, which is final. */
+    protected function send(UploadedFile $file, string $prompt, array $schema, ?string $effort): Message
+    {
+        return $this->client->messages->create(
+            maxTokens: self::MAX_TOKENS,
+            model: $this->model,
+            outputConfig: $this->outputConfig($schema, $effort),
+            messages: [[
+                'role' => 'user',
+                'content' => [$this->fileBlock($file), ['type' => 'text', 'text' => $prompt]],
+            ]],
+        );
     }
 
     /**
