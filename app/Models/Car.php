@@ -141,9 +141,10 @@ class Car extends Model
      * date order. The first stretch runs from the car's initial odometer - the
      * same baseline FuelingController writes against.
      *
-     * A fueling recorded without a distance still contributes its litres to
-     * the stretch it falls in. Dropping them would understate consumption,
-     * because the distance they covered is part of the next reading either way.
+     * A fueling recorded without a distance is left out entirely, litres and
+     * all. Its reading never advances the chain, so the kilometres it covered
+     * are absent from every later reading too - carrying its litres forward
+     * would charge them to a month that did not burn them.
      *
      * @return list<array{date: mixed, consumption: float, liters: float, distance: int}>
      */
@@ -153,41 +154,35 @@ class Car extends Model
 
         $stretches = [];
         $lastReading = $this->initial_odometer;
-        $liters = 0.0;
 
         foreach ($fuelings as $fueling) {
-            $liters += (float) $fueling->liters;
-
             if ($fueling->odometer_reading === null) {
                 continue;
             }
 
             $distance = $fueling->odometer_reading - $lastReading;
 
-            // A reading that doesn't advance closes no stretch; its litres roll
-            // into the next one rather than being lost.
             if ($distance <= 0) {
                 continue;
             }
 
             $stretches[] = [
                 'date' => $fueling->date,
-                'consumption' => round(($liters / $distance) * 100, 2),
-                'liters' => $liters,
+                'consumption' => round(((float) $fueling->liters / $distance) * 100, 2),
+                'liters' => (float) $fueling->liters,
                 'distance' => $distance,
             ];
 
             $lastReading = $fueling->odometer_reading;
-            $liters = 0.0;
         }
 
         return $stretches;
     }
 
     /**
-     * Average consumption in L/100km across every measurable stretch. Litres
-     * bought after the last known reading are left out - there is no distance
-     * to hold them against yet.
+     * Average consumption in L/100km across every measurable stretch. Fuel
+     * bought on entries without a distance is left out - there is nothing to
+     * hold it against.
      */
     public function getAverageConsumptionAttribute()
     {

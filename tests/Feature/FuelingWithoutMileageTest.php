@@ -68,19 +68,35 @@ class FuelingWithoutMileageTest extends TestCase
         $this->assertSame(1300, $later->fresh()->odometer_reading);
     }
 
-    public function test_its_liters_belong_to_the_next_measurable_stretch(): void
+    public function test_its_liters_are_left_out_of_the_consumption(): void
     {
-        // 20 L with no mileage, then 30 L over 500 km. The fuel burned on that
-        // stretch is all 50 L, not just the 30 that came with a reading.
+        // 20 L with no mileage, then 30 L over 500 km. The 500 km is the second
+        // entry's own distance - the kilometres the first one covered are in no
+        // reading at all, so charging its litres to this stretch would inflate
+        // the result. That is exactly what a bulk import of old receipts does.
         $this->log(['date' => '2026-07-30', 'liters' => 20.0]);
         $this->log(['date' => '2026-08-10', 'liters' => 30.0, 'trip_km' => 500]);
 
-        // 50 L / 500 km -> 10 L/100km
-        $this->assertSame(10.0, $this->car->fresh()->average_consumption);
+        // 30 L / 500 km -> 6 L/100km, not 10
+        $this->assertSame(6.0, $this->car->fresh()->average_consumption);
 
         $this->actingAs($this->user)
             ->get(route('cars.show', $this->car))
-            ->assertViewHas('fuelConsumption', [10.0]);
+            ->assertViewHas('fuelConsumption', [6.0]);
+    }
+
+    public function test_a_pile_of_imported_receipts_does_not_inflate_the_average(): void
+    {
+        // The reported symptom: a year of receipts filed without mileage, then
+        // one month that does have it. Every litre landed on that one month.
+        foreach (['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'] as $date) {
+            $this->log(['date' => $date, 'liters' => 45.0]);
+        }
+
+        $this->log(['date' => '2026-05-31', 'liters' => 20.0, 'trip_km' => 400]);
+
+        // 20 L / 400 km -> 5 L/100km. Carrying the other 180 L in would say 50.
+        $this->assertSame(5.0, $this->car->fresh()->average_consumption);
     }
 
     public function test_deleting_such_an_entry_leaves_other_mileages_alone(): void
