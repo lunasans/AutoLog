@@ -18,10 +18,12 @@ Das Projekt basiert auf dem **Laravel-Framework**.
 
 ### Lokal einrichten
 1. Repo klonen: `git clone https://github.com/lunasans/AutoLog.git`
-2. Abhängigkeiten installieren: `composer install && npm install`
+2. Abhängigkeiten installieren: `composer install`
 3. Umgebung konfigurieren: `cp .env.example .env` (Datenbankdaten eintragen)
-4. Key & DB: `php artisan key:generate && php artisan migrate`
-5. Assets bauen: `npm run dev`
+4. Key & DB: `php artisan key:generate && php artisan migrate && php artisan db:seed`
+5. Starten: `php artisan serve`
+
+Node.js wird nicht benötigt — das Stylesheet liegt fertig unter `public/css/app.css`.
 
 ### Deployment (Produktion)
 Die vollständige Server-Installation — MySQL, Konfiguration über Umgebungsvariablen statt `.env`, nginx bzw. CloudPanel, Deploy-Skript, Backups und Fehlersuche — steht in **[INSTALL.md](INSTALL.md)**.

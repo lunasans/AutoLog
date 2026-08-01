@@ -12,13 +12,17 @@ und Konfiguration über **echte Umgebungsvariablen** (ohne `.env`-Datei im Proje
 | PHP | ≥ 8.2 | `php -v` |
 | PHP-Extensions | `pdo_mysql`, `mbstring`, `fileinfo`, `openssl`, `ctype`, `xml`, `curl` | `php -m` |
 | Composer | 2.x | `composer -V` |
-| Node.js | ≥ 20 (nur zum Bauen der Assets) | `node -v` |
 | MySQL / MariaDB | ≥ 8.0 / ≥ 10.6 | `mysql --version` |
 
 ```bash
 sudo apt install php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-xml php8.3-curl \
-                 nginx mariadb-server composer nodejs npm
+                 nginx mariadb-server composer
 ```
+
+> **Node.js wird nicht benötigt.** Das Stylesheet liegt fertig unter `public/css/app.css`
+> im Repository, Chart.js und Lucide kommen per CDN. Die Vite-Konfiguration und
+> `resources/css` bzw. `resources/js` sind ungenutztes Laravel-Grundgerüst — keine View
+> bindet `@vite` ein. Es gibt daher keinen Build-Schritt.
 
 ---
 
@@ -44,11 +48,9 @@ sudo git clone https://github.com/lunasans/AutoLog.git autolog
 cd autolog
 
 composer install --no-dev --optimize-autoloader
-npm ci && npm run build
 ```
 
-Nach `npm run build` wird Node zur Laufzeit nicht mehr gebraucht — die fertigen Assets
-liegen in `public/build`.
+Kein Asset-Build nötig — siehe Hinweis in Abschnitt 1.
 
 ---
 
@@ -274,7 +276,6 @@ MySQL-Benutzer. Die Schritte 2, 4 (FPM-Teil), 6 und 8 entfallen dann — stattde
    rm -rf * .[!.]*                 # von CloudPanel angelegte Platzhalter entfernen
    git clone https://github.com/lunasans/AutoLog.git .
    composer install --no-dev --optimize-autoloader
-   npm ci && npm run build
    ```
 4. **Umgebungsvariablen:** Die Env-Datei gehört dem Site-User, nicht `www-data`:
    ```bash
@@ -331,7 +332,6 @@ set -a; . /etc/autolog.env; set +a
 
 git pull --ff-only
 composer install --no-dev --optimize-autoloader
-npm ci && npm run build
 
 php artisan migrate --force
 php artisan optimize:clear
@@ -374,7 +374,7 @@ tar czf autolog-files-$(date +%F).tar.gz \
 | `The stream or file … could not be opened` | `sudo chmod -R 775 storage bootstrap/cache` und Eigentümer `www-data` |
 | Login schlägt trotz korrektem Passwort fehl | Nach 5 Fehlversuchen pro Minute greift die Rate-Begrenzung — kurz warten |
 | Upload bricht bei großen Rechnungen ab | `upload_max_filesize` / `post_max_size` in FPM und `client_max_body_size` in nginx erhöhen |
-| CSS/JS fehlen | `npm run build` vergessen, oder `public/build` nicht mit ausgerollt |
+| Seite ohne Styling | `public/css/app.css` fehlt oder ist nicht lesbar; Chart.js/Lucide werden per CDN geladen — ohne Internetzugang des Browsers fehlen Diagramm und Icons |
 | Avatare werden nicht angezeigt | `php artisan storage:link` fehlt |
 
 Logs:
