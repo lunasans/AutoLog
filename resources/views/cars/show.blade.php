@@ -72,6 +72,23 @@
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
             </form>
+
+            @if ($canScanReceipts)
+                <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Mehrere Belege auf einmal</h4>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        Aus jedem Beleg wird ein Eintrag mit Datum, Litern und Betrag. Die gefahrenen
+                        Kilometer stehen nicht auf den Belegen — die trägst du je Eintrag nach.
+                    </p>
+                    <form action="{{ route('fuelings.import', $car) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <input type="file" name="receipts[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" required>
+                        <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem; background: rgba(255,255,255,0.05); box-shadow: none; color: var(--text-secondary);">
+                            Belege einlesen
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 
