@@ -36,11 +36,13 @@ class CarController extends Controller
         $fuelLabels = [];
         $fuelConsumption = [];
 
-        // The first fueling has no predecessor to measure against, so it only
-        // serves as the starting point of the timeline.
-        for ($i = 1; $i < count($chartData); $i++) {
+        // The first fueling is measured against the car's initial odometer -
+        // the same baseline FuelingController uses when writing the entry - so
+        // a car with a single fueling still charts a data point.
+        for ($i = 0; $i < count($chartData); $i++) {
             $current = $chartData[$i];
-            $distance = $current->odometer_reading - $chartData[$i - 1]->odometer_reading;
+            $baseOdometer = $i === 0 ? $car->initial_odometer : $chartData[$i - 1]->odometer_reading;
+            $distance = $current->odometer_reading - $baseOdometer;
 
             if ($distance > 0) {
                 $consumption = ($current->liters / $distance) * 100;
