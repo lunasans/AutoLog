@@ -58,8 +58,11 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
                     <input type="number" step="0.01" name="price_total" placeholder="Gesamtpreis €" required>
-                    <input type="number" step="0.1" name="trip_km" placeholder="Gefahrene KM" required>
+                    <input type="number" step="0.1" name="trip_km" placeholder="Gefahrene KM (optional)">
                 </div>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    Ohne Kilometer wird der Eintrag für Kosten und Spritpreis gezählt, aber nicht für den Verbrauch.
+                </p>
                 <div class="form-group" style="margin-top: 1rem;">
                     <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (PDF oder Bild, optional)</label>
                     <input type="file" name="receipt" id="fuel-receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
@@ -110,6 +113,26 @@
         </div>
     </div>
 
+    <!-- Fuel Price Trend -->
+    <div class="glass-panel" style="margin-bottom: 2rem; padding: 2rem;">
+        <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i data-lucide="euro" style="color: var(--warning); width: 22px; height: 22px;"></i>
+            Spritpreis (€/Liter)
+            @if (count($pricePerLiter) > 1)
+                <span style="margin-left: auto; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">
+                    {{ number_format(min($pricePerLiter), 3, ',', '.') }} – {{ number_format(max($pricePerLiter), 3, ',', '.') }} €
+                </span>
+            @endif
+        </h3>
+        @if (count($pricePerLiter))
+            <div style="height: 300px; width: 100%;">
+                <canvas id="priceChart"></canvas>
+            </div>
+        @else
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Noch keine Tankvorgänge erfasst.</p>
+        @endif
+    </div>
+
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 4rem;">
         <!-- Fueling Table -->
         <div class="glass-panel" style="padding: 0; overflow: hidden;">
@@ -136,7 +159,9 @@
                                 <td style="padding: 1rem 1.5rem;">{{ \Carbon\Carbon::parse($fuel->date)->format('d.m.Y') }}</td>
                                 <td style="padding: 1rem 1.5rem; font-weight: 600;">{{ number_format($fuel->liters, 2, ',', '.') }} L</td>
                                 <td style="padding: 1rem 1.5rem;">{{ number_format($fuel->price_total, 2, ',', '.') }} €</td>
-                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)">{{ number_format($fuel->odometer_reading, 0, ',', '.') }}</td>
+                                <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)" title="{{ $fuel->odometer_reading === null ? 'Ohne Kilometerangabe erfasst' : '' }}">
+                                    {{ $fuel->odometer_reading === null ? '–' : number_format($fuel->odometer_reading, 0, ',', '.') }}
+                                </td>
                                 <td style="padding: 1rem 1.5rem; text-align: right;">
                                     @if($fuel->hasReceipt())
                                         <a href="{{ route('fuelings.receipt', $fuel) }}" title="Rechnung öffnen" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
@@ -305,6 +330,74 @@
                         ticks: { 
                             color: textColor,
                             callback: function(value) { return Math.round(value * 100) / 100 + ' L'; }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+
+        const priceCanvas = document.getElementById('priceChart');
+        if (!priceCanvas) return;
+
+        const warningColor = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+
+        new Chart(priceCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($priceLabels) !!},
+                datasets: [{
+                    label: 'Spritpreis (€/L)',
+                    data: {!! json_encode($pricePerLiter) !!},
+                    backgroundColor: warningColor + '22',
+                    borderColor: warningColor,
+                    borderWidth: 3,
+                    fill: true,
+                    // Prices jump between fill-ups rather than easing into each
+                    // other, so a straight line is the honest reading.
+                    tension: 0,
+                    pointBackgroundColor: warningColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y.toFixed(3).replace('.', ',') + ' €/L';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        // Fuel prices move in cents; zeroing the axis would
+                        // flatten every change worth looking at.
+                        beginAtZero: false,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: {
+                            color: textColor,
+                            callback: function(value) { return value.toFixed(2).replace('.', ',') + ' €'; }
                         }
                     },
                     x: {

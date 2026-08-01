@@ -15,4 +15,17 @@ class Fueling extends Model
     {
         return $this->belongsTo(Car::class);
     }
+
+    /**
+     * Price per litre in euros. Not stored - it follows from the two figures
+     * the receipt actually shows, so there is nothing to keep in sync.
+     */
+    public function getPricePerLiterAttribute(): ?float
+    {
+        if (! $this->liters || $this->liters <= 0) {
+            return null;
+        }
+
+        return round($this->price_total / $this->liters, 3);
+    }
 }
