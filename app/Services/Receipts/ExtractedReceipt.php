@@ -30,6 +30,15 @@ class ExtractedReceipt
         ];
     }
 
+    /**
+     * Whether everything the fueling form needs was found. Odometer readings
+     * are not printed on fuel receipts, so they don't count towards this.
+     */
+    public function isComplete(): bool
+    {
+        return $this->date !== null && $this->liters !== null && $this->priceTotal !== null;
+    }
+
     public function isEmpty(): bool
     {
         return $this->date === null

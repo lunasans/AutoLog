@@ -11,6 +11,8 @@ class DashboardController extends Controller
         $cars = $request->user()->cars()->with(['fuelings', 'repairs'])->get();
 
         $stats = $cars->map(function ($car) {
+            // Fuel and workshop costs are reported separately - they behave
+            // differently and lumping them together hides which is which.
             $totalFuel = $car->fuelings->sum('price_total');
             $totalRepairs = $car->repairs->sum('cost');
 
@@ -26,6 +28,8 @@ class DashboardController extends Controller
 
             return [
                 'car' => $car,
+                'total_fuel' => $totalFuel,
+                'total_repairs' => $totalRepairs,
                 'total_spent' => $totalFuel + $totalRepairs,
                 'avg_consumption' => $car->average_consumption,
                 'hu_urgent' => $huUrgent,

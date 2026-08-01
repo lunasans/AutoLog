@@ -2,16 +2,14 @@
 
 namespace App\Services\Receipts;
 
-use Anthropic\Client;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
 
 /**
- * Reads a fuel receipt with Claude's vision model and returns structured values.
+ * Reads a fuel receipt with Claude's vision model.
  *
- * The model never sees the stored file - it gets the freshly uploaded one and
- * nothing is persisted here. Results are suggestions only; the user confirms
- * them in the form before anything is saved.
+ * Only reached for scans and layouts PdfTextReceiptExtractor cannot parse -
+ * every call costs money, so the free path runs first. Results are suggestions
+ * the user confirms in the form; nothing is saved on their behalf.
  */
 class ClaudeReceiptExtractor implements ReceiptExtractor
 {
@@ -40,10 +38,7 @@ class ClaudeReceiptExtractor implements ReceiptExtractor
         'additionalProperties' => false,
     ];
 
-    public function __construct(
-        private readonly Client $client,
-        private readonly string $model,
-    ) {}
+    public function __construct(private readonly ClaudeDocumentReader $reader) {}
 
     public function isAvailable(): bool
     {
@@ -52,98 +47,17 @@ class ClaudeReceiptExtractor implements ReceiptExtractor
 
     public function extract(UploadedFile $file): ExtractedReceipt
     {
-        try {
-            $response = $this->client->messages->create(
-                maxTokens: 1024,
-                model: $this->model,
-                outputConfig: ['effort' => 'low', 'format' => ['type' => 'json_schema', 'schema' => self::SCHEMA]],
-                messages: [[
-                    'role' => 'user',
-                    'content' => [$this->fileBlock($file), ['type' => 'text', 'text' => self::PROMPT]],
-                ]],
-            );
-        } catch (\Throwable $e) {
-            // A failed scan must never block the upload - the user types the
-            // values instead, exactly as before this feature existed.
-            Log::warning('Receipt extraction failed', ['exception' => $e]);
+        $data = $this->reader->read($file, self::PROMPT, self::SCHEMA);
 
-            return ExtractedReceipt::empty();
-        }
-
-        return $this->parse($response);
-    }
-
-    /**
-     * PDFs need a document block, images an image block - the block type must
-     * match the file's MIME type or the API rejects the request.
-     */
-    private function fileBlock(UploadedFile $file): array
-    {
-        $mime = $file->getMimeType();
-        $data = base64_encode(file_get_contents($file->getRealPath()));
-
-        if ($mime === 'application/pdf') {
-            return [
-                'type' => 'document',
-                'source' => ['type' => 'base64', 'mediaType' => 'application/pdf', 'data' => $data],
-            ];
-        }
-
-        return [
-            'type' => 'image',
-            'source' => ['type' => 'base64', 'mediaType' => $mime, 'data' => $data],
-        ];
-    }
-
-    private function parse(object $response): ExtractedReceipt
-    {
-        if ($response->stopReason === 'refusal') {
-            Log::warning('Receipt extraction refused', ['details' => $response->stopDetails]);
-
-            return ExtractedReceipt::empty();
-        }
-
-        $text = '';
-        foreach ($response->content as $block) {
-            if ($block->type === 'text') {
-                $text .= $block->text;
-            }
-        }
-
-        $data = json_decode($text, true);
-
-        if (! is_array($data)) {
-            Log::warning('Receipt extraction returned unparseable output', ['output' => $text]);
-
+        if ($data === null) {
             return ExtractedReceipt::empty();
         }
 
         return new ExtractedReceipt(
-            date: $this->asDate($data['date'] ?? null),
-            liters: $this->asPositiveFloat($data['liters'] ?? null),
-            priceTotal: $this->asPositiveFloat($data['price_total'] ?? null),
-            odometerReading: $this->asPositiveInt($data['odometer_reading'] ?? null),
+            date: Value::date($data['date'] ?? null),
+            liters: Value::positiveFloat($data['liters'] ?? null),
+            priceTotal: Value::positiveFloat($data['price_total'] ?? null),
+            odometerReading: Value::positiveInt($data['odometer_reading'] ?? null),
         );
-    }
-
-    private function asDate(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
-
-        return $date && $date->format('Y-m-d') === $value ? $value : null;
-    }
-
-    private function asPositiveFloat(mixed $value): ?float
-    {
-        return is_numeric($value) && $value > 0 ? (float) $value : null;
-    }
-
-    private function asPositiveInt(mixed $value): ?int
-    {
-        return is_numeric($value) && $value > 0 ? (int) $value : null;
     }
 }

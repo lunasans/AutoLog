@@ -107,27 +107,25 @@ class Car extends Model
     }
 
     /**
-     * Average consumption in L/100km using the full-tank method: every fueling
-     * covers the distance since the previous one, so the first fueling only
-     * serves as a starting point and its liters are not counted.
+     * Average consumption in L/100km: every fueling covers the distance since
+     * the previous one, and the first one covers the distance since the car's
+     * initial odometer - the same baseline FuelingController writes against.
      */
     public function getAverageConsumptionAttribute()
     {
         $fuelings = $this->fuelings->sortBy('odometer_reading')->values();
 
-        if ($fuelings->count() < 2) {
+        if ($fuelings->isEmpty()) {
             return 0;
         }
 
-        $distance = $fuelings->last()->odometer_reading - $fuelings->first()->odometer_reading;
+        $distance = $fuelings->last()->odometer_reading - $this->initial_odometer;
 
         if ($distance <= 0) {
             return 0;
         }
 
-        $liters = $fuelings->slice(1)->sum('liters');
-
-        return round(($liters / $distance) * 100, 2);
+        return round(($fuelings->sum('liters') / $distance) * 100, 2);
     }
 
     /**
