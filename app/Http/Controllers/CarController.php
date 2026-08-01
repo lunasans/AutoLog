@@ -25,11 +25,15 @@ class CarController extends Controller
     {
         Gate::authorize('view', $car);
 
-        $car->load(['fuelings' => function($q) {
+        $car->load(['fuelings' => function ($q) {
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
-        }, 'repairs' => function($q) {
+        }, 'repairs' => function ($q) {
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }]);
+
+        // The history lists what the user typed in - the distance driven - not
+        // the running odometer we derive from it.
+        $tripDistances = $car->tripDistances();
 
         $fuelLabels = [];
         $fuelConsumption = [];
@@ -61,7 +65,7 @@ class CarController extends Controller
 
         return view('cars.show', compact(
             'car', 'fuelLabels', 'fuelConsumption', 'priceLabels', 'pricePerLiter',
-            'canScanReceipts', 'canScanRepairs'
+            'tripDistances', 'canScanReceipts', 'canScanRepairs'
         ));
     }
 
@@ -97,6 +101,7 @@ class CarController extends Controller
         Gate::authorize('delete', $car);
 
         $car->delete();
+
         return redirect()->route('dashboard')->with('success', 'Fahrzeug wurde erfolgreich entfernt.');
     }
 
@@ -116,7 +121,7 @@ class CarController extends Controller
         return [
             'brand' => 'required|string|max:255',
             'model' => 'required|string|max:255',
-            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'year' => 'nullable|integer|min:1900|max:'.(date('Y') + 1),
             'license_plate' => ['required', 'string', 'max:255', $plateUnique],
             'vin' => 'nullable|string|max:255',
             'hu_due_at' => 'nullable|string|max:30',
