@@ -52,13 +52,26 @@ class CarController extends Controller
             }
         }
 
+        // Unlike consumption, a price needs no distance to measure against, so
+        // every fueling contributes a point - including the very first.
+        $priceLabels = [];
+        $pricePerLiter = [];
+
+        foreach ($chartData as $fueling) {
+            if ($fueling->price_per_liter !== null) {
+                $priceLabels[] = \Carbon\Carbon::parse($fueling->date)->format('d.m.y');
+                $pricePerLiter[] = $fueling->price_per_liter;
+            }
+        }
+
         // Fuel receipts can be read from a PDF text layer without an API key,
         // so the two are enabled independently.
         $canScanReceipts = app(ReceiptExtractor::class)->isAvailable();
         $canScanRepairs = app(RepairExtractor::class)->isAvailable();
 
         return view('cars.show', compact(
-            'car', 'fuelLabels', 'fuelConsumption', 'canScanReceipts', 'canScanRepairs'
+            'car', 'fuelLabels', 'fuelConsumption', 'priceLabels', 'pricePerLiter',
+            'canScanReceipts', 'canScanRepairs'
         ));
     }
 
