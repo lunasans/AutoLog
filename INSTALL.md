@@ -92,7 +92,14 @@ LOG_LEVEL=error
 # Optional: Beleg-Erkennung. Ohne Key bleibt der Upload unverändert nutzbar,
 # nur das automatische Ausfüllen entfällt.
 ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-opus-5
+ANTHROPIC_EFFORT=low
 ```
+
+> **Zu `ANTHROPIC_EFFORT`:** Nicht jedes Modell kennt diesen Parameter. Haiku 4.5
+> lehnt damit **jeden** Request mit `400 - This model does not support the effort
+> parameter` ab, statt ihn zu ignorieren. Wer auf `ANTHROPIC_MODEL=claude-haiku-4-5`
+> wechselt, muss den Wert deshalb leer lassen (`ANTHROPIC_EFFORT=`).
 
 Den Application Key einmalig erzeugen und oben eintragen (ohne `.env` schreibt
 `key:generate` nichts in eine Datei, deshalb `--show`):
@@ -144,6 +151,8 @@ env[QUEUE_CONNECTION] = database
 env[FILESYSTEM_DISK] = local
 ; Optional, siehe oben
 env[ANTHROPIC_API_KEY] =
+env[ANTHROPIC_MODEL] = claude-opus-5
+env[ANTHROPIC_EFFORT] = low
 ```
 
 FPM startet mit `clear_env = yes`, deshalb müssen die Werte hier explizit als `env[…]`
