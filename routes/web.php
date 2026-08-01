@@ -23,6 +23,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     Route::resource('cars', CarController::class);
     Route::post('cars/{car}/fuelings', [FuelingController::class, 'store'])->name('fuelings.store');
     Route::post('cars/{car}/repairs', [RepairController::class, 'store'])->name('repairs.store');
+    Route::post('cars/{car}/fuelings/import', [FuelingController::class, 'import'])->name('fuelings.import');
     Route::get('fuelings/{fueling}/edit', [FuelingController::class, 'edit'])->name('fuelings.edit');
     Route::patch('fuelings/{fueling}', [FuelingController::class, 'update'])->name('fuelings.update');
     Route::delete('fuelings/{fueling}', [FuelingController::class, 'destroy'])->name('fuelings.destroy');
