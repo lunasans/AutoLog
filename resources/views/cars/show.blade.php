@@ -168,6 +168,9 @@
                                             <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
                                         </a>
                                     @endif
+                                    <a href="{{ route('fuelings.edit', $fuel) }}" title="Eintrag bearbeiten" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
+                                        <i data-lucide="pencil" style="width: 16px; height: 16px;"></i>
+                                    </a>
                                     <form action="{{ route('fuelings.destroy', $fuel) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')" style="display: inline-block;">
                                         @csrf
                                         @method('DELETE')

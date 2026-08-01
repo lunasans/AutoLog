@@ -4,65 +4,69 @@ namespace App\Http\Controllers;
 
 use App\Models\Car;
 use App\Models\Fueling;
+use App\Services\FuelingLedger;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 
 class FuelingController extends Controller
 {
+    public function __construct(private readonly FuelingLedger $ledger) {}
+
     public function store(Request $request, Car $car)
     {
         Gate::authorize('update', $car);
 
-        $validated = $request->validate([
-            'date' => 'required|date',
-            'liters' => 'required|numeric|min:0.1',
-            'price_total' => 'required|numeric|min:0.1',
-            // Optional: receipts filed long after the fact rarely come with the
-            // distance driven, and a missing figure beats an invented one.
-            'trip_km' => 'nullable|numeric|min:0.1',
-            'receipt' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:8192'],
-        ]);
+        $validated = $this->validated($request);
 
-        DB::transaction(function () use ($car, $validated, $request) {
-            $tripKm = $validated['trip_km'] ?? null;
+        $fueling = $this->ledger->add(
+            $car,
+            collect($validated)->only(['date', 'liters', 'price_total'])->all(),
+            $validated['trip_km'] ?? null,
+        );
 
-            // Anchor the entry on the last fueling *before* its date, so entries
-            // added out of order still land at the right mileage. Entries with
-            // no distance of their own carry no reading to anchor on.
-            $previous = $car->fuelings()
-                ->whereNotNull('odometer_reading')
-                ->where('date', '<=', $validated['date'])
-                ->orderBy('date', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $baseOdometer = $previous ? $previous->odometer_reading : $car->initial_odometer;
-
-            $fueling = $car->fuelings()->create([
-                'date' => $validated['date'],
-                'liters' => $validated['liters'],
-                'price_total' => $validated['price_total'],
-                'odometer_reading' => $tripKm === null ? null : $baseOdometer + $tripKm,
-            ]);
-
-            if ($request->hasFile('receipt')) {
-                $fueling->storeReceipt($request->file('receipt'));
-                $fueling->save();
-            }
-
-            // Everything recorded later moved by the same distance. Without a
-            // distance there is nothing to shift. (Rows with no reading are
-            // left alone either way - incrementing NULL yields NULL.)
-            if ($tripKm !== null) {
-                $car->fuelings()
-                    ->where('date', '>', $validated['date'])
-                    ->increment('odometer_reading', $tripKm);
-            }
-        });
+        if ($request->hasFile('receipt')) {
+            $fueling->storeReceipt($request->file('receipt'));
+            $fueling->save();
+        }
 
         return redirect()->back()->with('success', 'Tankvorgang gespeichert.');
+    }
+
+    public function edit(Fueling $fueling)
+    {
+        Gate::authorize('update', $fueling);
+
+        return view('fuelings.edit', [
+            'fueling' => $fueling,
+            'car' => $fueling->car,
+            // Stored as a reading, entered as a distance - derive it back.
+            'tripKm' => $this->ledger->tripKm($fueling),
+        ]);
+    }
+
+    public function update(Request $request, Fueling $fueling)
+    {
+        Gate::authorize('update', $fueling);
+
+        $validated = $this->validated($request);
+
+        $this->ledger->revise(
+            $fueling,
+            collect($validated)->only(['date', 'liters', 'price_total'])->all(),
+            $validated['trip_km'] ?? null,
+        );
+
+        if ($request->hasFile('receipt')) {
+            $fueling->storeReceipt($request->file('receipt'));
+            $fueling->save();
+        } elseif ($request->boolean('remove_receipt')) {
+            $fueling->deleteReceipt();
+            $fueling->save();
+        }
+
+        return redirect()->route('cars.show', $fueling->car)
+            ->with('success', 'Tankvorgang aktualisiert.');
     }
 
     public function receipt(Fueling $fueling)
@@ -78,36 +82,21 @@ class FuelingController extends Controller
     {
         Gate::authorize('delete', $fueling);
 
-        DB::transaction(function () use ($fueling) {
-            $car = $fueling->car;
-
-            // An entry recorded without a distance left no gap to close.
-            if ($fueling->odometer_reading === null) {
-                $fueling->delete();
-
-                return;
-            }
-
-            $previous = $car->fuelings()
-                ->whereNotNull('odometer_reading')
-                ->where('id', '!=', $fueling->id)
-                ->where('odometer_reading', '<=', $fueling->odometer_reading)
-                ->orderBy('odometer_reading', 'desc')
-                ->first();
-
-            $baseOdometer = $previous ? $previous->odometer_reading : $car->initial_odometer;
-            $tripKm = $fueling->odometer_reading - $baseOdometer;
-
-            $fueling->delete();
-
-            // Close the gap the removed trip left behind.
-            if ($tripKm > 0) {
-                $car->fuelings()
-                    ->where('odometer_reading', '>', $fueling->odometer_reading)
-                    ->decrement('odometer_reading', $tripKm);
-            }
-        });
+        $this->ledger->remove($fueling);
 
         return redirect()->back()->with('success', 'Tankvorgang wurde gelöscht.');
+    }
+
+    private function validated(Request $request): array
+    {
+        return $request->validate([
+            'date' => 'required|date',
+            'liters' => 'required|numeric|min:0.1',
+            'price_total' => 'required|numeric|min:0.1',
+            // Optional: receipts filed long after the fact rarely come with the
+            // distance driven, and a missing figure beats an invented one.
+            'trip_km' => 'nullable|numeric|min:0.1',
+            'receipt' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:8192'],
+        ]);
     }
 }
