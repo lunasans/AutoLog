@@ -33,6 +33,9 @@ return [
         // exactly as before, upload included.
         'key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-5'),
+        // Not every model accepts this - Haiku 4.5 rejects the whole request
+        // with a 400. Leave ANTHROPIC_EFFORT empty to omit it entirely.
+        'effort' => env('ANTHROPIC_EFFORT', 'low'),
     ],
 
     'slack' => [

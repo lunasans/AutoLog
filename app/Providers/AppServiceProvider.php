@@ -26,12 +26,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ClaudeDocumentReader::class, function ($app) {
             $key = $app['config']->get('services.anthropic.key');
 
-            return filled($key)
-                ? new ClaudeDocumentReader(
-                    new Client(apiKey: $key),
-                    $app['config']->get('services.anthropic.model'),
-                )
-                : null;
+            if (blank($key)) {
+                return null;
+            }
+
+            $effort = $app['config']->get('services.anthropic.effort');
+
+            return new ClaudeDocumentReader(
+                new Client(apiKey: $key),
+                $app['config']->get('services.anthropic.model'),
+                blank($effort) ? null : $effort,
+            );
         });
 
         $this->app->singleton(ReceiptExtractor::class, function ($app) {

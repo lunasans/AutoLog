@@ -19,15 +19,35 @@ class ClaudeDocumentReader
     public function __construct(
         private readonly Client $client,
         private readonly string $model,
+        private readonly ?string $effort = null,
     ) {}
+
+    /**
+     * Effort is model-specific: Haiku 4.5 rejects the whole request with a 400
+     * rather than ignoring it, so it has to be omitted rather than defaulted.
+     */
+    private function outputConfig(array $schema): array
+    {
+        $config = ['format' => ['type' => 'json_schema', 'schema' => $schema]];
+
+        return $this->effort === null ? $config : ['effort' => $this->effort] + $config;
+    }
+
+    /**
+     * Thinking is on by default and counts against maxTokens together with the
+     * answer, so this has to cover reading the document as well as writing the
+     * result. A multi-page scan needs far more room than a till receipt, and
+     * running out truncates the JSON rather than failing loudly.
+     */
+    private const MAX_TOKENS = 8192;
 
     public function read(UploadedFile $file, string $prompt, array $schema): ?array
     {
         try {
             $response = $this->client->messages->create(
-                maxTokens: 1024,
+                maxTokens: self::MAX_TOKENS,
                 model: $this->model,
-                outputConfig: ['effort' => 'low', 'format' => ['type' => 'json_schema', 'schema' => $schema]],
+                outputConfig: $this->outputConfig($schema),
                 messages: [[
                     'role' => 'user',
                     'content' => [$this->fileBlock($file), ['type' => 'text', 'text' => $prompt]],
@@ -55,7 +75,13 @@ class ClaudeDocumentReader
         $data = json_decode($text, true);
 
         if (! is_array($data)) {
-            Log::warning('Document reading returned unparseable output', ['output' => $text]);
+            // stopReason distinguishes a truncated answer (max_tokens) from
+            // genuinely malformed output - without it this is guesswork.
+            Log::warning('Document reading returned unparseable output', [
+                'stop_reason' => $response->stopReason,
+                'output_tokens' => $response->usage->outputTokens,
+                'output' => $text,
+            ]);
 
             return null;
         }
