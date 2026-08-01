@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use Anthropic\Client;
+use App\Services\Receipts\ChainedReceiptExtractor;
 use App\Services\Receipts\ClaudeReceiptExtractor;
-use App\Services\Receipts\NullReceiptExtractor;
+use App\Services\Receipts\PdfTextReceiptExtractor;
 use App\Services\Receipts\ReceiptExtractor;
 use Illuminate\Support\ServiceProvider;
+use Smalot\PdfParser\Parser;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,14 +20,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ReceiptExtractor::class, function ($app) {
             $key = $app['config']->get('services.anthropic.key');
 
-            if (blank($key)) {
-                return new NullReceiptExtractor;
+            // Cheapest first: provider PDFs are read locally for free, and only
+            // scans or unknown layouts reach the paid vision model.
+            $extractors = [new PdfTextReceiptExtractor(new Parser)];
+
+            if (filled($key)) {
+                $extractors[] = new ClaudeReceiptExtractor(
+                    new Client(apiKey: $key),
+                    $app['config']->get('services.anthropic.model'),
+                );
             }
 
-            return new ClaudeReceiptExtractor(
-                new Client(apiKey: $key),
-                $app['config']->get('services.anthropic.model'),
-            );
+            return new ChainedReceiptExtractor($extractors);
         });
     }
 

@@ -1,4 +1,6 @@
 *.log
+# Sample receipts carry personal data - keep them out of the repository.
+*.pdf
 .DS_Store
 .env
 .env.backup
