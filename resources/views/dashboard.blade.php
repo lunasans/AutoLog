@@ -43,9 +43,13 @@
                 </div>
 
                 <div class="stat-group">
-                    <div class="stat-box">
-                        <span class="stat-label">Investiert</span>
-                        <div class="stat-value">{{ number_format($stat['total_spent'], 0, ',', '.') }}<small style="font-size: 0.6em; margin-left: 2px;">€</small></div>
+                    <div class="stat-box" title="Gesamt: {{ number_format($stat['total_spent'], 2, ',', '.') }} €">
+                        <span class="stat-label">Sprit</span>
+                        <div class="stat-value">{{ number_format($stat['total_fuel'], 0, ',', '.') }}<small style="font-size: 0.6em; margin-left: 2px;">€</small></div>
+                    </div>
+                    <div class="stat-box" title="Gesamt: {{ number_format($stat['total_spent'], 2, ',', '.') }} €">
+                        <span class="stat-label">Werkstatt</span>
+                        <div class="stat-value">{{ number_format($stat['total_repairs'], 0, ',', '.') }}<small style="font-size: 0.6em; margin-left: 2px;">€</small></div>
                     </div>
                     <div class="stat-box">
                         <span class="stat-label">Verbrauch</span>
