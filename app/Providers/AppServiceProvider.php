@@ -4,9 +4,13 @@ namespace App\Providers;
 
 use Anthropic\Client;
 use App\Services\Receipts\ChainedReceiptExtractor;
+use App\Services\Receipts\ClaudeDocumentReader;
 use App\Services\Receipts\ClaudeReceiptExtractor;
+use App\Services\Receipts\ClaudeRepairExtractor;
+use App\Services\Receipts\NullRepairExtractor;
 use App\Services\Receipts\PdfTextReceiptExtractor;
 use App\Services\Receipts\ReceiptExtractor;
+use App\Services\Receipts\RepairExtractor;
 use Illuminate\Support\ServiceProvider;
 use Smalot\PdfParser\Parser;
 
@@ -17,21 +21,37 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ReceiptExtractor::class, function ($app) {
+        // Null when no API key is configured, which every consumer checks via
+        // isAvailable() rather than reaching for the config itself.
+        $this->app->singleton(ClaudeDocumentReader::class, function ($app) {
             $key = $app['config']->get('services.anthropic.key');
 
+            return filled($key)
+                ? new ClaudeDocumentReader(
+                    new Client(apiKey: $key),
+                    $app['config']->get('services.anthropic.model'),
+                )
+                : null;
+        });
+
+        $this->app->singleton(ReceiptExtractor::class, function ($app) {
             // Cheapest first: provider PDFs are read locally for free, and only
             // scans or unknown layouts reach the paid vision model.
             $extractors = [new PdfTextReceiptExtractor(new Parser)];
 
-            if (filled($key)) {
-                $extractors[] = new ClaudeReceiptExtractor(
-                    new Client(apiKey: $key),
-                    $app['config']->get('services.anthropic.model'),
-                );
+            if ($reader = $app->make(ClaudeDocumentReader::class)) {
+                $extractors[] = new ClaudeReceiptExtractor($reader);
             }
 
             return new ChainedReceiptExtractor($extractors);
+        });
+
+        // Workshop invoices are scans - no free path, so without a key the
+        // feature is off rather than degraded.
+        $this->app->singleton(RepairExtractor::class, function ($app) {
+            $reader = $app->make(ClaudeDocumentReader::class);
+
+            return $reader ? new ClaudeRepairExtractor($reader) : new NullRepairExtractor;
         });
     }
 

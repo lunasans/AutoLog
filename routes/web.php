@@ -30,11 +30,12 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     Route::get('fuelings/{fueling}/receipt', [FuelingController::class, 'receipt'])->name('fuelings.receipt');
     Route::get('repairs/{repair}/receipt', [RepairController::class, 'receipt'])->name('repairs.receipt');
 
-    // Reads a receipt before it is saved, to prefill the entry form. Throttled
-    // because every call costs money at the model provider.
-    Route::post('receipts/scan', [ReceiptScanController::class, 'scan'])
-        ->name('receipts.scan')
-        ->middleware('throttle:20,1');
+    // Reads a document before it is saved, to prefill the entry form. Throttled
+    // because a call may cost money at the model provider.
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('receipts/scan/fueling', [ReceiptScanController::class, 'fueling'])->name('receipts.scan.fueling');
+        Route::post('receipts/scan/repair', [ReceiptScanController::class, 'repair'])->name('receipts.scan.repair');
+    });
     
     // Profile & Settings
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');

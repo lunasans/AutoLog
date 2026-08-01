@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Car;
 use App\Services\Receipts\ReceiptExtractor;
+use App\Services\Receipts\RepairExtractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -51,9 +52,14 @@ class CarController extends Controller
             }
         }
 
+        // Fuel receipts can be read from a PDF text layer without an API key,
+        // so the two are enabled independently.
         $canScanReceipts = app(ReceiptExtractor::class)->isAvailable();
+        $canScanRepairs = app(RepairExtractor::class)->isAvailable();
 
-        return view('cars.show', compact('car', 'fuelLabels', 'fuelConsumption', 'canScanReceipts'));
+        return view('cars.show', compact(
+            'car', 'fuelLabels', 'fuelConsumption', 'canScanReceipts', 'canScanRepairs'
+        ));
     }
 
     public function store(Request $request)

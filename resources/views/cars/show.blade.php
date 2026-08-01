@@ -75,7 +75,7 @@
     <div id="repair-detail" style="display: none; margin-bottom: 2rem;">
         <div class="glass-panel" style="max-width: 600px;">
             <h3 style="margin-bottom: 1.5rem;">Service/Reparatur erfassen</h3>
-            <form action="{{ route('repairs.store', $car) }}" method="POST" enctype="multipart/form-data">
+            <form id="repair-form" action="{{ route('repairs.store', $car) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="form-group">
                     <input type="text" name="description" placeholder="Was wurde gemacht?" required>
@@ -89,7 +89,10 @@
                 </div>
                 <div class="form-group" style="margin-top: 1rem;">
                     <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (PDF oder Bild, optional)</label>
-                    <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                    <input type="file" name="receipt" id="repair-receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                    @if ($canScanRepairs)
+                        <p id="repair-scan-status" style="display: none; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></p>
+                    @endif
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Loggen</button>
             </form>
@@ -313,67 +316,91 @@
         });
     });
 </script>
-@if ($canScanReceipts)
+@if ($canScanReceipts || $canScanRepairs)
 <script>
-    // Reads the receipt as soon as it is picked and fills in whatever it could
+    // Reads a receipt as soon as it is picked and fills in whatever it could
     // find. Only empty fields are touched, so anything already typed wins.
     document.addEventListener('DOMContentLoaded', function () {
-        const fileInput = document.getElementById('fuel-receipt');
-        const status = document.getElementById('fuel-scan-status');
-        const form = document.getElementById('fuel-form');
+        function wireScanner(options) {
+            const form = document.getElementById(options.form);
+            const fileInput = document.getElementById(options.file);
+            const status = document.getElementById(options.status);
 
-        if (!fileInput || !status || !form) return;
+            if (!form || !fileInput || !status) return;
 
-        function show(message) {
-            status.textContent = message;
-            status.style.display = 'block';
+            function show(message) {
+                status.textContent = message;
+                status.style.display = 'block';
+            }
+
+            fileInput.addEventListener('change', async function () {
+                const file = fileInput.files[0];
+                if (!file) {
+                    status.style.display = 'none';
+                    return;
+                }
+
+                show('Beleg wird gelesen …');
+
+                const body = new FormData();
+                body.append('receipt', file);
+                body.append('_token', form.querySelector('input[name="_token"]').value);
+
+                let data;
+                try {
+                    const response = await fetch(options.url, { method: 'POST', body: body });
+                    if (!response.ok) throw new Error(response.status);
+                    data = await response.json();
+                } catch (e) {
+                    show('Beleg konnte nicht gelesen werden – bitte die Werte eintragen.');
+                    return;
+                }
+
+                const filled = [];
+
+                for (const [name, label] of Object.entries(options.fields)) {
+                    const input = form.querySelector('[name="' + name + '"]');
+                    if (!input) continue;
+
+                    // A date input is prefilled with today, so it counts as
+                    // empty for our purposes - the receipt knows better.
+                    const isEmpty = !input.value || name === 'date';
+                    if (data[name] !== null && data[name] !== undefined && isEmpty) {
+                        input.value = data[name];
+                        filled.push(label);
+                    }
+                }
+
+                show(filled.length
+                    ? 'Aus dem Beleg übernommen: ' + filled.join(', ') + '. Bitte prüfen.'
+                    : 'Aus dem Beleg konnte nichts gelesen werden – bitte die Werte eintragen.');
+            });
         }
 
-        fileInput.addEventListener('change', async function () {
-            const file = fileInput.files[0];
-            if (!file) {
-                status.style.display = 'none';
-                return;
-            }
+        @if ($canScanReceipts)
+            wireScanner({
+                form: 'fuel-form',
+                file: 'fuel-receipt',
+                status: 'fuel-scan-status',
+                url: '{{ route('receipts.scan.fueling') }}',
+                fields: { date: 'Datum', liters: 'Liter', price_total: 'Gesamtpreis' },
+            });
+        @endif
 
-            show('Beleg wird gelesen …');
-
-            const body = new FormData();
-            body.append('receipt', file);
-            body.append('_token', form.querySelector('input[name="_token"]').value);
-
-            let data;
-            try {
-                const response = await fetch('{{ route('receipts.scan') }}', { method: 'POST', body: body });
-                if (!response.ok) throw new Error(response.status);
-                data = await response.json();
-            } catch (e) {
-                show('Beleg konnte nicht gelesen werden – bitte die Werte eintragen.');
-                return;
-            }
-
-            const filled = [];
-            const fields = {
-                date: 'Datum',
-                liters: 'Liter',
-                price_total: 'Gesamtpreis',
-            };
-
-            for (const [name, label] of Object.entries(fields)) {
-                const input = form.querySelector('[name="' + name + '"]');
-                // A date input is prefilled with today, so it counts as empty
-                // for our purposes - the receipt knows better.
-                const isEmpty = !input.value || name === 'date';
-                if (data[name] !== null && data[name] !== undefined && isEmpty) {
-                    input.value = data[name];
-                    filled.push(label);
-                }
-            }
-
-            show(filled.length
-                ? 'Aus dem Beleg übernommen: ' + filled.join(', ') + '. Bitte prüfen.'
-                : 'Aus dem Beleg konnte nichts gelesen werden – bitte die Werte eintragen.');
-        });
+        @if ($canScanRepairs)
+            wireScanner({
+                form: 'repair-form',
+                file: 'repair-receipt',
+                status: 'repair-scan-status',
+                url: '{{ route('receipts.scan.repair') }}',
+                fields: {
+                    date: 'Datum',
+                    description: 'Beschreibung',
+                    cost: 'Kosten',
+                    odometer_reading: 'Kilometerstand',
+                },
+            });
+        @endif
     });
 </script>
 @endif
