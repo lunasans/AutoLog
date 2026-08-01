@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,15 +13,18 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed the application's database.
+     *
+     * Deliberately without a factory: Faker lives in require-dev and is missing
+     * on a server installed with `composer install --no-dev`.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Admin',
-            'email' => 'admin@autolog.pro',
-            'password' => \Illuminate\Support\Facades\Hash::make('password'),
-        ]);
+        User::firstOrCreate(
+            ['email' => 'admin@autolog.pro'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('password'),
+            ]
+        );
     }
 }
