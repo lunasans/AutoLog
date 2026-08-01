@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Car;
+use App\Services\Receipts\ReceiptExtractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -48,7 +49,9 @@ class CarController extends Controller
             }
         }
 
-        return view('cars.show', compact('car', 'fuelLabels', 'fuelConsumption'));
+        $canScanReceipts = app(ReceiptExtractor::class)->isAvailable();
+
+        return view('cars.show', compact('car', 'fuelLabels', 'fuelConsumption', 'canScanReceipts'));
     }
 
     public function store(Request $request)

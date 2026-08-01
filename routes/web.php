@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CarController;
 use App\Http\Controllers\FuelingController;
 use App\Http\Controllers\RepairController;
+use App\Http\Controllers\ReceiptScanController;
 use Illuminate\Support\Facades\Route;
 
 // Auth Routes
@@ -28,6 +29,12 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     // Receipts are private files, served only through these authorized routes.
     Route::get('fuelings/{fueling}/receipt', [FuelingController::class, 'receipt'])->name('fuelings.receipt');
     Route::get('repairs/{repair}/receipt', [RepairController::class, 'receipt'])->name('repairs.receipt');
+
+    // Reads a receipt before it is saved, to prefill the entry form. Throttled
+    // because every call costs money at the model provider.
+    Route::post('receipts/scan', [ReceiptScanController::class, 'scan'])
+        ->name('receipts.scan')
+        ->middleware('throttle:20,1');
     
     // Profile & Settings
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
