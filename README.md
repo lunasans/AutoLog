@@ -23,8 +23,8 @@ Das Projekt basiert auf dem **Laravel-Framework**.
 4. Key & DB: `php artisan key:generate && php artisan migrate`
 5. Assets bauen: `npm run dev`
 
-### Deployment (CloudPanel)
-AutoLog Pro ist für das Deployment mit **CloudPanel** optimiert. Wähle einfach das Laravel-Vhost-Profil aus. Ein detaillierter Guide befindet sich in den Projekt-Artifacts.
+### Deployment (Produktion)
+Die vollständige Server-Installation — MySQL, Konfiguration über Umgebungsvariablen statt `.env`, nginx bzw. CloudPanel, Deploy-Skript, Backups und Fehlersuche — steht in **[INSTALL.md](INSTALL.md)**.
 
 ## 🛠️ Tech Stack
 
