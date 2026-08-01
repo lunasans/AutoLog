@@ -88,6 +88,10 @@ QUEUE_CONNECTION=database
 FILESYSTEM_DISK=local
 LOG_CHANNEL=stack
 LOG_LEVEL=error
+
+# Optional: Beleg-Erkennung. Ohne Key bleibt der Upload unverändert nutzbar,
+# nur das automatische Ausfüllen entfällt.
+ANTHROPIC_API_KEY=
 ```
 
 Den Application Key einmalig erzeugen und oben eintragen (ohne `.env` schreibt
@@ -138,6 +142,8 @@ env[SESSION_DOMAIN] = deine-domain.tld
 env[CACHE_STORE] = database
 env[QUEUE_CONNECTION] = database
 env[FILESYSTEM_DISK] = local
+; Optional, siehe oben
+env[ANTHROPIC_API_KEY] =
 ```
 
 FPM startet mit `clear_env = yes`, deshalb müssen die Werte hier explizit als `env[…]`
