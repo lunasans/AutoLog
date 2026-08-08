@@ -29,6 +29,8 @@ class CarController extends Controller
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }, 'repairs' => function ($q) {
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
+        }, 'parkingTickets' => function ($q) {
+            $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }]);
 
         // The history lists what the user typed in - the distance driven - not

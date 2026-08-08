@@ -51,6 +51,10 @@
                         <span class="stat-label">Werkstatt</span>
                         <div class="stat-value">{{ number_format($stat['total_repairs'], 2, ',', '.') }}<small style="font-size: 0.6em; margin-left: 2px;">€</small></div>
                     </div>
+                    <div class="stat-box" title="Gesamt: {{ number_format($stat['total_spent'], 2, ',', '.') }} €">
+                        <span class="stat-label">Parken</span>
+                        <div class="stat-value">{{ number_format($stat['total_parking'], 2, ',', '.') }}<small style="font-size: 0.6em; margin-left: 2px;">€</small></div>
+                    </div>
                     <div class="stat-box">
                         <span class="stat-label">Verbrauch</span>
                         <div class="stat-value">{{ $stat['avg_consumption'] }}<small style="font-size: 0.6em; margin-left: 2px;">L/100</small></div>
@@ -73,6 +77,9 @@
                     </button>
                     <button onclick="toggleForm('repair-{{ $stat['car']->id }}')" class="nav-link" style="justify-content: center; margin: 0; background: rgba(255,255,255,0.03);">
                         <i data-lucide="wrench" style="width: 18px; height: 18px;"></i> Service
+                    </button>
+                    <button onclick="toggleForm('parking-{{ $stat['car']->id }}')" class="nav-link" style="justify-content: center; margin: 0; grid-column: span 2; background: rgba(255,255,255,0.03);">
+                        <i data-lucide="parking-circle" style="width: 18px; height: 18px;"></i> Parkticket
                     </button>
                 </div>
 
@@ -115,6 +122,28 @@
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Service loggen</button>
                     </form>
                 </div>
+                <div id="parking-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
+                    <form action="{{ route('parking-tickets.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="form-group">
+                            <input type="text" name="location" placeholder="Wo geparkt?" required>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem;">
+                            <input type="date" name="date" value="{{ date('Y-m-d') }}" required>
+                            <input type="number" step="0.01" name="cost" placeholder="Kosten €" required>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem;">
+                            <input type="time" name="start_time">
+                            <input type="time" name="end_time">
+                        </div>
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Parkschein (optional)</label>
+                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                        </div>
+                        <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Parkticket speichern</button>
+                    </form>
+                </div>
+
                 <div style="margin-top: 0.75rem;">
                     <a href="{{ route('cars.show', $stat['car']) }}" class="nav-link" style="justify-content: center; margin: 0; background: rgba(99, 102, 241, 0.05); color: var(--accent);">
                         <i data-lucide="info" style="width: 18px; height: 18px;"></i> Vollständige Details & Historie

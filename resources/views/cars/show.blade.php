@@ -36,6 +36,9 @@
             <button onclick="toggleForm('repair-detail')" class="btn-premium">
                 <i data-lucide="wrench" style="width: 18px; height: 18px;"></i> Service loggen
             </button>
+            <button onclick="toggleForm('parking-detail')" class="btn-premium">
+                <i data-lucide="parking-circle" style="width: 18px; height: 18px;"></i> Parkticket
+            </button>
             <form action="{{ route('cars.destroy', $car) }}" method="POST" onsubmit="return confirm('Bist du sicher? Alle Daten dieses Fahrzeugs werden unwiderruflich gelöscht!')">
                 @csrf
                 @method('DELETE')
@@ -115,6 +118,34 @@
                     @endif
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Loggen</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="parking-detail" style="display: none; margin-bottom: 2rem;">
+        <div class="glass-panel" style="max-width: 600px;">
+            <h3 style="margin-bottom: 1.5rem;">Parkticket erfassen</h3>
+            <form action="{{ route('parking-tickets.store', $car) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="form-group">
+                    <input type="text" name="location" placeholder="Wo geparkt? (z. B. Parkhaus Zentrum)" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <input type="date" name="date" value="{{ date('Y-m-d') }}" required>
+                    <input type="number" step="0.01" name="cost" placeholder="Kosten €" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <input type="time" name="start_time" placeholder="Von">
+                    <input type="time" name="end_time" placeholder="Bis">
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    Von/Bis sind optional – ohne Zeiten wird nur der Betrag gezählt.
+                </p>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Parkschein (PDF oder Foto, optional)</label>
+                    <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                </div>
+                <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
             </form>
         </div>
     </div>
@@ -260,6 +291,58 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Parking Table -->
+    <div class="glass-panel" style="padding: 0; overflow: hidden; margin-bottom: 4rem;">
+        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                <i data-lucide="parking-circle" style="color: var(--success); width: 20px; height: 20px;"></i>
+                Parktickets
+            </h3>
+            <span style="font-size: 0.8rem; color: var(--text-secondary)">{{ $car->parkingTickets->count() }} Einträge</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.02); font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">
+                        <th style="padding: 1rem 1.5rem;">Datum</th>
+                        <th style="padding: 1rem 1.5rem;">Ort</th>
+                        <th style="padding: 1rem 1.5rem;">Zeitraum</th>
+                        <th style="padding: 1rem 1.5rem;">Kosten</th>
+                        <th style="padding: 1rem 1.5rem;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($car->parkingTickets as $ticket)
+                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                            <td style="padding: 1rem 1.5rem;">{{ \Carbon\Carbon::parse($ticket->date)->format('d.m.Y') }}</td>
+                            <td style="padding: 1rem 1.5rem;">{{ $ticket->location }}</td>
+                            <td style="padding: 1rem 1.5rem; font-family: monospace; color: var(--text-secondary)">{{ $ticket->parked_period ?? '–' }}</td>
+                            <td style="padding: 1rem 1.5rem; font-weight: 600;">{{ number_format($ticket->cost, 2, ',', '.') }} €</td>
+                            <td style="padding: 1rem 1.5rem; text-align: right;">
+                                @if($ticket->hasReceipt())
+                                    <a href="{{ route('parking-tickets.receipt', $ticket) }}" title="Parkschein öffnen" style="color: var(--text-secondary); display: inline-block; padding: 4px;">
+                                        <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                    </a>
+                                @endif
+                                <form action="{{ route('parking-tickets.destroy', $ticket) }}" method="POST" onsubmit="return confirm('Eintrag wirklich löschen?')" style="display: inline-block;">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='var(--danger)'; this.style.background='rgba(244, 63, 94, 0.1)'" onmouseout="this.style.color='var(--text-secondary)'; this.style.background='none'">
+                                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-secondary)">Noch keine Parktickets.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
 
