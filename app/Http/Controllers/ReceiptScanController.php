@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Receipts\ExtractedParkingSession;
+use App\Services\Receipts\ParkingExtractor;
 use App\Services\Receipts\ReceiptExtractor;
 use App\Services\Receipts\RepairExtractor;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +19,7 @@ class ReceiptScanController extends Controller
     public function __construct(
         private readonly ReceiptExtractor $receipts,
         private readonly RepairExtractor $repairs,
+        private readonly ParkingExtractor $parking,
     ) {}
 
     public function fueling(Request $request): JsonResponse
@@ -38,6 +41,32 @@ class ReceiptScanController extends Controller
 
         return response()->json(
             $this->repairs->extract($this->validated($request))->toArray()
+        );
+    }
+
+    /**
+     * Fills the parking form from a single document. A provider invoice bills
+     * many sessions at once and cannot be squeezed into one form - the answer
+     * says so, and the page points at the import instead of prefilling one of
+     * them and losing the rest.
+     */
+    public function parking(Request $request): JsonResponse
+    {
+        if (! $this->parking->isAvailable()) {
+            return $this->unavailable();
+        }
+
+        $sessions = array_values(array_filter(
+            $this->parking->extract($this->validated($request)),
+            fn (ExtractedParkingSession $session) => $session->isComplete(),
+        ));
+
+        if (count($sessions) > 1) {
+            return response()->json(['sessions' => count($sessions)]);
+        }
+
+        return response()->json(
+            ($sessions[0] ?? new ExtractedParkingSession)->toAttributes() + ['sessions' => count($sessions)]
         );
     }
 

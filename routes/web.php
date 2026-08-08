@@ -45,6 +45,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     Route::middleware('throttle:20,1')->group(function () {
         Route::post('receipts/scan/fueling', [ReceiptScanController::class, 'fueling'])->name('receipts.scan.fueling');
         Route::post('receipts/scan/repair', [ReceiptScanController::class, 'repair'])->name('receipts.scan.repair');
+        Route::post('receipts/scan/parking', [ReceiptScanController::class, 'parking'])->name('receipts.scan.parking');
     });
     
     // Profile & Settings

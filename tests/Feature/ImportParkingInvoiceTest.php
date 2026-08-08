@@ -30,7 +30,7 @@ class ImportParkingInvoiceTest extends TestCase
             'brand' => 'VW',
             'model' => 'Polo',
             'year' => 2010,
-            'license_plate' => 'GL-MS 141',
+            'license_plate' => 'M-AB 1234',
             'initial_odometer' => 0,
         ]);
     }
@@ -219,7 +219,7 @@ class ImportParkingInvoiceTest extends TestCase
     public function test_the_provider_charge_is_part_of_what_the_entry_costs(): void
     {
         $this->fakeExtractor([[
-            new ExtractedParkingSession('2026-08-05', 'Bergisch Gladbach, Tarif II', 0.98, '11:30', '12:29', fee: 0.55),
+            new ExtractedParkingSession('2026-08-05', 'Musterstadt, Tarif II', 0.98, '11:30', '12:29', fee: 0.55),
         ]]);
 
         $this->import([$this->pdf('easypark-august.pdf')]);
@@ -231,14 +231,14 @@ class ImportParkingInvoiceTest extends TestCase
     {
         $this->fakeExtractor([[
             // The plate is printed without separators; the car carries them.
-            new ExtractedParkingSession('2026-08-05', 'Bergisch Gladbach', 0.98, licensePlate: 'GLMS141'),
+            new ExtractedParkingSession('2026-08-05', 'Musterstadt', 0.98, licensePlate: 'MAB1234'),
             new ExtractedParkingSession('2026-08-06', 'Köln', 2.4, licensePlate: 'K-XY 999'),
         ]]);
 
         $this->import([$this->pdf('easypark-august.pdf')])
             ->assertSessionHas('success', fn ($m) => str_contains($m, '1 Parkvorgang gehört zu einem anderen Kennzeichen'));
 
-        $this->assertSame('Bergisch Gladbach', $this->car->parkingTickets()->sole()->location);
+        $this->assertSame('Musterstadt', $this->car->parkingTickets()->sole()->location);
     }
 
     public function test_a_document_naming_no_plate_is_taken_at_face_value(): void

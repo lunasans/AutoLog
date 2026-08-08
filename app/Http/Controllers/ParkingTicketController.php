@@ -126,7 +126,7 @@ class ParkingTicketController extends Controller
             return true;
         }
 
-        // "GLMS141" and "GL-MS 141" are the same plate written two ways.
+        // "MAB1234" and "M-AB 1234" are the same plate written two ways.
         $normalize = fn (string $plate) => strtoupper(preg_replace('/[^\p{L}\p{N}]/u', '', $plate));
 
         return $normalize($session->licensePlate) === $normalize($car->license_plate);
