@@ -147,6 +147,23 @@
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
             </form>
+
+            @if ($canScanParking)
+                <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Anbieter-Rechnung einlesen</h4>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        Rechnung von EasyPark & Co. hochladen – jeder abgerechnete Parkvorgang
+                        wird ein eigener Eintrag. Einzelne Parkscheine gehen genauso.
+                    </p>
+                    <form action="{{ route('parking-tickets.import', $car) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <input type="file" name="receipts[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" required>
+                        <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem; background: rgba(255,255,255,0.05); box-shadow: none; color: var(--text-secondary);">
+                            Rechnung einlesen
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 

@@ -5,9 +5,12 @@ namespace App\Providers;
 use Anthropic\Client;
 use App\Services\Receipts\ChainedReceiptExtractor;
 use App\Services\Receipts\ClaudeDocumentReader;
+use App\Services\Receipts\ClaudeParkingExtractor;
 use App\Services\Receipts\ClaudeReceiptExtractor;
 use App\Services\Receipts\ClaudeRepairExtractor;
+use App\Services\Receipts\NullParkingExtractor;
 use App\Services\Receipts\NullRepairExtractor;
+use App\Services\Receipts\ParkingExtractor;
 use App\Services\Receipts\PdfTextReceiptExtractor;
 use App\Services\Receipts\ReceiptExtractor;
 use App\Services\Receipts\RepairExtractor;
@@ -57,6 +60,14 @@ class AppServiceProvider extends ServiceProvider
             $reader = $app->make(ClaudeDocumentReader::class);
 
             return $reader ? new ClaudeRepairExtractor($reader) : new NullRepairExtractor;
+        });
+
+        // Same for parking: tickets, app screenshots and provider invoices
+        // share no layout worth writing patterns against.
+        $this->app->singleton(ParkingExtractor::class, function ($app) {
+            $reader = $app->make(ClaudeDocumentReader::class);
+
+            return $reader ? new ClaudeParkingExtractor($reader) : new NullParkingExtractor;
         });
     }
 

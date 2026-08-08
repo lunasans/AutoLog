@@ -20,6 +20,23 @@ class Value
         return $date && $date->format('Y-m-d') === $value ? $value : null;
     }
 
+    /**
+     * A wall-clock time as HH:MM. Seconds are dropped rather than rejected -
+     * an invoice that prints them still means the same minute.
+     */
+    public static function time(mixed $value): ?string
+    {
+        if (! is_string($value) || ! preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', trim($value), $m)) {
+            return null;
+        }
+
+        if ((int) $m[1] > 23 || (int) $m[2] > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d', $m[1], $m[2]);
+    }
+
     public static function positiveFloat(mixed $value): ?float
     {
         return is_numeric($value) && $value > 0 ? (float) $value : null;

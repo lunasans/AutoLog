@@ -25,6 +25,9 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     Route::post('cars/{car}/fuelings', [FuelingController::class, 'store'])->name('fuelings.store');
     Route::post('cars/{car}/repairs', [RepairController::class, 'store'])->name('repairs.store');
     Route::post('cars/{car}/parking-tickets', [ParkingTicketController::class, 'store'])->name('parking-tickets.store');
+    // Every import reaches the model - throttled like the other paid routes.
+    Route::post('cars/{car}/parking-tickets/import', [ParkingTicketController::class, 'import'])
+        ->middleware('throttle:20,1')->name('parking-tickets.import');
     Route::post('cars/{car}/fuelings/import', [FuelingController::class, 'import'])->name('fuelings.import');
     Route::get('fuelings/{fueling}/edit', [FuelingController::class, 'edit'])->name('fuelings.edit');
     Route::patch('fuelings/{fueling}', [FuelingController::class, 'update'])->name('fuelings.update');
