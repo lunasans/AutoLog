@@ -60,6 +60,7 @@ class ParkingTicketController extends Controller
 
         $created = 0;
         $skipped = 0;
+        $foreign = 0;
         $unreadable = [];
 
         foreach ($validated['receipts'] as $file) {
@@ -74,13 +75,20 @@ class ParkingTicketController extends Controller
                 continue;
             }
 
+            // One account often covers several cars. A session that names a
+            // different plate belongs to one of them, not to this car - which
+            // is worth reporting rather than silently importing.
+            $mine = array_filter($sessions, fn (ExtractedParkingSession $s) => $this->belongsTo($s, $car));
+            $foreign += count($sessions) - count($mine);
+            $sessions = $mine;
+
             $filed = null;
 
             foreach ($sessions as $session) {
                 // Importing the same invoice twice shouldn't double the log.
                 $exists = $car->parkingTickets()
                     ->where('date', $session->date)
-                    ->where('cost', $session->cost)
+                    ->where('cost', $session->total())
                     ->where('location', $session->location)
                     ->exists();
 
@@ -90,7 +98,7 @@ class ParkingTicketController extends Controller
                     continue;
                 }
 
-                $ticket = $car->parkingTickets()->create($session->toArray());
+                $ticket = $car->parkingTickets()->create($session->toAttributes());
 
                 // The upload can only be stored once - every further entry off
                 // the same document gets its own copy of what was filed.
@@ -104,11 +112,28 @@ class ParkingTicketController extends Controller
         }
 
         return redirect()->route('cars.show', $car)
-            ->with('success', $this->importSummary($created, $skipped, $unreadable));
+            ->with('success', $this->importSummary($created, $skipped, $foreign, $unreadable));
+    }
+
+    /**
+     * Whether a session was parked by this car. A document that names no plate
+     * is taken at face value - the user picked the car, and refusing a plain
+     * paper ticket for lack of a plate would help nobody.
+     */
+    private function belongsTo(ExtractedParkingSession $session, Car $car): bool
+    {
+        if ($session->licensePlate === null) {
+            return true;
+        }
+
+        // "MAB1234" and "M-AB 1234" are the same plate written two ways.
+        $normalize = fn (string $plate) => strtoupper(preg_replace('/[^\p{L}\p{N}]/u', '', $plate));
+
+        return $normalize($session->licensePlate) === $normalize($car->license_plate);
     }
 
     /** @param  list<string>  $unreadable */
-    private function importSummary(int $created, int $skipped, array $unreadable): string
+    private function importSummary(int $created, int $skipped, int $foreign, array $unreadable): string
     {
         $parts = [$created === 1 ? '1 Parkvorgang angelegt' : "{$created} Parkvorgänge angelegt"];
 
@@ -116,6 +141,12 @@ class ParkingTicketController extends Controller
             $parts[] = $skipped === 1
                 ? '1 Parkvorgang war schon erfasst'
                 : "{$skipped} Parkvorgänge waren schon erfasst";
+        }
+
+        if ($foreign > 0) {
+            $parts[] = $foreign === 1
+                ? '1 Parkvorgang gehört zu einem anderen Kennzeichen'
+                : "{$foreign} Parkvorgänge gehören zu anderen Kennzeichen";
         }
 
         if ($unreadable !== []) {

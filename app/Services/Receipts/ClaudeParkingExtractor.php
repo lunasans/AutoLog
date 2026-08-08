@@ -32,10 +32,15 @@ class ClaudeParkingExtractor implements ParkingExtractor
         - cost: Betrag dieses Parkvorgangs in Euro, brutto (inkl. MwSt.)
         - start_time: Beginn im Format HH:MM, falls angegeben
         - end_time: Ende im Format HH:MM, falls angegeben
+        - fee: Gebühr des Anbieters für genau diesen Parkvorgang, brutto, falls
+          sie getrennt vom Parkbetrag ausgewiesen wird (z.B. als eigene Position
+          "Dienstleistung"). Sonst null - rechne sie nicht in cost hinein.
+        - license_plate: Kennzeichen des Fahrzeugs, falls beim Parkvorgang genannt
 
         Wichtig:
-        - Jeder Parkvorgang kommt genau einmal vor. Übernimm keine Summenzeile,
-          keine Gebühren des Anbieters und keine Steuerzeilen als Parkvorgang.
+        - Jeder Parkvorgang kommt genau einmal vor. Übernimm keine Summenzeile
+          und keine Steuerzeile als Parkvorgang. Anbietergebühren gehören in
+          "fee" des zugehörigen Parkvorgangs, nicht in einen eigenen Eintrag.
         - Enthält das Dokument nur einen einzigen Parkvorgang, gib genau einen
           Eintrag zurück.
         - Setze ein Feld auf null, wenn du den Wert nicht zweifelsfrei lesen kannst.
@@ -55,8 +60,10 @@ class ClaudeParkingExtractor implements ParkingExtractor
                         'cost' => ['anyOf' => [['type' => 'number'], ['type' => 'null']]],
                         'start_time' => ['anyOf' => [['type' => 'string'], ['type' => 'null']]],
                         'end_time' => ['anyOf' => [['type' => 'string'], ['type' => 'null']]],
+                        'fee' => ['anyOf' => [['type' => 'number'], ['type' => 'null']]],
+                        'license_plate' => ['anyOf' => [['type' => 'string'], ['type' => 'null']]],
                     ],
-                    'required' => ['date', 'location', 'cost', 'start_time', 'end_time'],
+                    'required' => ['date', 'location', 'cost', 'start_time', 'end_time', 'fee', 'license_plate'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -95,6 +102,8 @@ class ClaudeParkingExtractor implements ParkingExtractor
                 cost: Value::positiveFloat($session['cost'] ?? null),
                 startTime: Value::time($session['start_time'] ?? null),
                 endTime: Value::time($session['end_time'] ?? null),
+                fee: Value::positiveFloat($session['fee'] ?? null),
+                licensePlate: Value::text($session['license_plate'] ?? null, 255),
             );
         }
 
