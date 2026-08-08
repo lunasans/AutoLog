@@ -336,30 +336,29 @@ und Rechnungen.
 
 ## 10. Deploys
 
-`deploy.sh` im Projektverzeichnis:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-cd /var/www/autolog
-
-set -a; . /etc/autolog.env; set +a
-
-git pull --ff-only
-composer install --no-dev --optimize-autoloader
-
-php artisan migrate --force
-php artisan optimize:clear
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-sudo systemctl reload php8.3-fpm
-```
+`deploy.sh` liegt im Repository — einmal ausführbar machen, danach genügt ein Aufruf:
 
 ```bash
 chmod +x deploy.sh
+./deploy.sh
 ```
+
+Es zieht den Stand, installiert Abhängigkeiten, migriert und **erneuert die Caches**.
+Der letzte Punkt ist keine Kosmetik: Wird `php artisan optimize:clear` ausgelassen,
+liefert der kompilierte View weiter die alte Seite. Der neue Code ist dann zwar
+ausgerollt, im Browser passiert aber nichts — ein Fehlerbild, das nach einem Bug
+aussieht und keiner ist.
+
+Wer von Hand ausrollt, braucht denselben Nachlauf:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+```
+
+Läuft PHP-FPM mit OPcache, wird der Code erst nach dessen Reload sichtbar:
+`sudo systemctl reload php8.3-fpm` — auf Hostings ohne `sudo` über die
+Panel-Funktion „PHP neu starten".
 
 ---
 
