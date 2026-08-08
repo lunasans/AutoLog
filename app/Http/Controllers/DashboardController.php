@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Receipts\ParkingExtractor;
+use App\Services\Receipts\ReceiptExtractor;
+use App\Services\Receipts\RepairExtractor;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -38,6 +41,11 @@ class DashboardController extends Controller
             ];
         });
 
-        return view('dashboard', compact('stats'));
+        // The quick forms read receipts just like the ones on the car page.
+        $canScanReceipts = app(ReceiptExtractor::class)->isAvailable();
+        $canScanRepairs = app(RepairExtractor::class)->isAvailable();
+        $canScanParking = app(ParkingExtractor::class)->isAvailable();
+
+        return view('dashboard', compact('stats', 'canScanReceipts', 'canScanRepairs', 'canScanParking'));
     }
 }

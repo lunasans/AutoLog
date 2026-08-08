@@ -84,7 +84,7 @@
                 </div>
 
                 <div id="fuel-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
-                    <form action="{{ route('fuelings.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
+                    <form id="fuel-form-{{ $stat['car']->id }}" action="{{ route('fuelings.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                             <input type="number" step="0.01" name="liters" placeholder="Liter" required>
@@ -96,14 +96,17 @@
                         </div>
                         <div class="form-group" style="margin-top: 0.75rem;">
                             <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (optional)</label>
-                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            <input type="file" name="receipt" id="fuel-receipt-{{ $stat['car']->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            @if ($canScanReceipts)
+                                <p id="fuel-scan-status-{{ $stat['car']->id }}" style="display: none; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></p>
+                            @endif
                         </div>
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
                     </form>
                 </div>
 
                 <div id="repair-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
-                    <form action="{{ route('repairs.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
+                    <form id="repair-form-{{ $stat['car']->id }}" action="{{ route('repairs.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                             <input type="text" name="description" placeholder="Was wurde gemacht?" required style="grid-column: span 2;">
@@ -117,13 +120,16 @@
                         </div>
                         <div class="form-group" style="margin-top: 0.75rem;">
                             <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Rechnung / Beleg (optional)</label>
-                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            <input type="file" name="receipt" id="repair-receipt-{{ $stat['car']->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            @if ($canScanRepairs)
+                                <p id="repair-scan-status-{{ $stat['car']->id }}" style="display: none; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></p>
+                            @endif
                         </div>
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Service loggen</button>
                     </form>
                 </div>
                 <div id="parking-{{ $stat['car']->id }}" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
-                    <form action="{{ route('parking-tickets.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
+                    <form id="parking-form-{{ $stat['car']->id }}" action="{{ route('parking-tickets.store', $stat['car']) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="form-group">
                             <input type="text" name="location" placeholder="Wo geparkt?" required>
@@ -138,7 +144,10 @@
                         </div>
                         <div class="form-group" style="margin-top: 0.75rem;">
                             <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Parkschein (optional)</label>
-                            <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            <input type="file" name="receipt" id="parking-receipt-{{ $stat['car']->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                            @if ($canScanParking)
+                                <p id="parking-scan-status-{{ $stat['car']->id }}" style="display: none; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></p>
+                            @endif
                         </div>
                         <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Parkticket speichern</button>
                     </form>
@@ -172,4 +181,47 @@
         form.style.display = isOpen ? 'none' : 'block';
     }
 </script>
+@if ($canScanReceipts || $canScanRepairs || $canScanParking)
+<script src="{{ asset('js/receipt-scanner.js') }}"></script>
+<script>
+    // One set of quick forms per car, so every scanner is wired per car id.
+    document.addEventListener('DOMContentLoaded', function () {
+        @foreach ($stats as $stat)
+            @php($id = $stat['car']->id)
+
+            @if ($canScanReceipts)
+                wireReceiptScanner({
+                    form: 'fuel-form-{{ $id }}',
+                    file: 'fuel-receipt-{{ $id }}',
+                    status: 'fuel-scan-status-{{ $id }}',
+                    url: '{{ route('receipts.scan.fueling') }}',
+                    fields: receiptScannerFields.fueling,
+                });
+            @endif
+
+            @if ($canScanRepairs)
+                wireReceiptScanner({
+                    form: 'repair-form-{{ $id }}',
+                    file: 'repair-receipt-{{ $id }}',
+                    status: 'repair-scan-status-{{ $id }}',
+                    url: '{{ route('receipts.scan.repair') }}',
+                    fields: receiptScannerFields.repair,
+                });
+            @endif
+
+            @if ($canScanParking)
+                wireReceiptScanner({
+                    form: 'parking-form-{{ $id }}',
+                    file: 'parking-receipt-{{ $id }}',
+                    status: 'parking-scan-status-{{ $id }}',
+                    url: '{{ route('receipts.scan.parking') }}',
+                    fields: receiptScannerFields.parking,
+                    holdsSeveral: parkingHoldsSeveral,
+                    severalMessage: parkingSeveralMessage,
+                });
+            @endif
+        @endforeach
+    });
+</script>
+@endif
 @endpush
