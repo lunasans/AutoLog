@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Car;
 use App\Models\User;
 use App\Services\Receipts\ExtractedParkingSession;
-use App\Services\Receipts\NullParkingExtractor;
 use App\Services\Receipts\ParkingExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -193,12 +192,61 @@ class ImportParkingInvoiceTest extends TestCase
         $this->assertSame(0, $this->car->parkingTickets()->count());
     }
 
-    public function test_without_a_configured_reader_the_import_is_off(): void
+    public function test_without_a_working_extractor_the_import_is_off(): void
     {
-        $this->app->instance(ParkingExtractor::class, new NullParkingExtractor);
+        $this->app->instance(ParkingExtractor::class, new class implements ParkingExtractor
+        {
+            public function extract(UploadedFile $file): array
+            {
+                return [];
+            }
+
+            public function isAvailable(): bool
+            {
+                return false;
+            }
+        });
 
         $this->import([$this->pdf('easypark-juli.pdf')])->assertNotFound();
 
         $this->assertSame(0, $this->car->parkingTickets()->count());
+    }
+
+    /**
+     * The provider bills its handling charge apart from the parking fee. What
+     * the entry has to show is what was actually debited.
+     */
+    public function test_the_provider_charge_is_part_of_what_the_entry_costs(): void
+    {
+        $this->fakeExtractor([[
+            new ExtractedParkingSession('2026-08-05', 'Bergisch Gladbach, Tarif II', 0.98, '11:30', '12:29', fee: 0.55),
+        ]]);
+
+        $this->import([$this->pdf('easypark-august.pdf')]);
+
+        $this->assertEqualsWithDelta(1.53, $this->car->parkingTickets()->sole()->cost, 0.001);
+    }
+
+    public function test_a_session_of_another_car_is_reported_instead_of_imported(): void
+    {
+        $this->fakeExtractor([[
+            // The plate is printed without separators; the car carries them.
+            new ExtractedParkingSession('2026-08-05', 'Bergisch Gladbach', 0.98, licensePlate: 'GLMS141'),
+            new ExtractedParkingSession('2026-08-06', 'Köln', 2.4, licensePlate: 'K-XY 999'),
+        ]]);
+
+        $this->import([$this->pdf('easypark-august.pdf')])
+            ->assertSessionHas('success', fn ($m) => str_contains($m, '1 Parkvorgang gehört zu einem anderen Kennzeichen'));
+
+        $this->assertSame('Bergisch Gladbach', $this->car->parkingTickets()->sole()->location);
+    }
+
+    public function test_a_document_naming_no_plate_is_taken_at_face_value(): void
+    {
+        $this->fakeExtractor([[new ExtractedParkingSession('2026-08-05', 'Parkhaus Zentrum', 4.5)]]);
+
+        $this->import([$this->pdf('parkschein.pdf')]);
+
+        $this->assertSame(1, $this->car->parkingTickets()->count());
     }
 }
