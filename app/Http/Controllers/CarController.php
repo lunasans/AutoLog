@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Car;
+use App\Services\Receipts\ParkingExtractor;
 use App\Services\Receipts\ReceiptExtractor;
 use App\Services\Receipts\RepairExtractor;
 use Illuminate\Http\Request;
@@ -28,6 +29,8 @@ class CarController extends Controller
         $car->load(['fuelings' => function ($q) {
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }, 'repairs' => function ($q) {
+            $q->orderBy('date', 'desc')->orderBy('id', 'desc');
+        }, 'parkingTickets' => function ($q) {
             $q->orderBy('date', 'desc')->orderBy('id', 'desc');
         }]);
 
@@ -62,10 +65,11 @@ class CarController extends Controller
         // so the two are enabled independently.
         $canScanReceipts = app(ReceiptExtractor::class)->isAvailable();
         $canScanRepairs = app(RepairExtractor::class)->isAvailable();
+        $canScanParking = app(ParkingExtractor::class)->isAvailable();
 
         return view('cars.show', compact(
             'car', 'fuelLabels', 'fuelConsumption', 'priceLabels', 'pricePerLiter',
-            'tripDistances', 'canScanReceipts', 'canScanRepairs'
+            'tripDistances', 'canScanReceipts', 'canScanRepairs', 'canScanParking'
         ));
     }
 

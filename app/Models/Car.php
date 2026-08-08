@@ -65,6 +65,10 @@ class Car extends Model
             foreach ($car->repairs as $repair) {
                 $repair->deleteReceipt();
             }
+
+            foreach ($car->parkingTickets as $ticket) {
+                $ticket->deleteReceipt();
+            }
         });
     }
 
@@ -81,6 +85,11 @@ class Car extends Model
     public function repairs()
     {
         return $this->hasMany(Repair::class);
+    }
+
+    public function parkingTickets()
+    {
+        return $this->hasMany(ParkingTicket::class);
     }
 
     /**

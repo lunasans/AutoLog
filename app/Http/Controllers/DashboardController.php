@@ -8,13 +8,14 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $cars = $request->user()->cars()->with(['fuelings', 'repairs'])->get();
+        $cars = $request->user()->cars()->with(['fuelings', 'repairs', 'parkingTickets'])->get();
 
         $stats = $cars->map(function ($car) {
-            // Fuel and workshop costs are reported separately - they behave
-            // differently and lumping them together hides which is which.
+            // Fuel, workshop and parking costs are reported separately - they
+            // behave differently and lumping them together hides which is which.
             $totalFuel = $car->fuelings->sum('price_total');
             $totalRepairs = $car->repairs->sum('cost');
+            $totalParking = $car->parkingTickets->sum('cost');
 
             // Safely calculate HU urgency
             $huUrgent = false;
@@ -30,7 +31,8 @@ class DashboardController extends Controller
                 'car' => $car,
                 'total_fuel' => $totalFuel,
                 'total_repairs' => $totalRepairs,
-                'total_spent' => $totalFuel + $totalRepairs,
+                'total_parking' => $totalParking,
+                'total_spent' => $totalFuel + $totalRepairs + $totalParking,
                 'avg_consumption' => $car->average_consumption,
                 'hu_urgent' => $huUrgent,
             ];
