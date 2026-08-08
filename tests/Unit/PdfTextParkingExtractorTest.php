@@ -9,8 +9,8 @@ use Smalot\PdfParser\Parser;
 /**
  * Exercised against the text an EasyPark invoice yields, so the patterns can be
  * checked without keeping a real invoice - they carry name, address, plate and
- * payment details - in the repository. Figures and plates below are made up;
- * the layout is what matters and is reproduced verbatim.
+ * payment details - in the repository. Only the layout below is taken from a
+ * real invoice; every plate, place, amount and reference number is invented.
  */
 class PdfTextParkingExtractorTest extends TestCase
 {
@@ -26,7 +26,7 @@ class PdfTextParkingExtractorTest extends TestCase
             EasyPark | Rechnung
             Datum: 06.08.2026
 
-            	Belegverweis:	1858404950
+            	Belegverweis:	1000000000
             Zeitraum:	01.08.2026 - 31.08.2026
 
             Transaktionen
@@ -35,14 +35,14 @@ class PdfTextParkingExtractorTest extends TestCase
              Details zum Parkvorgang	Parkzone	Betrag (exkl.
             MwSt.)
 
-             1.Startzeit: 05.08.2026 11:30	Stadt Bergisch Gladbach
-            HRN: DE121978025
-            Parkzone: 514002
+             1.Startzeit: 05.08.2026 11:30	Stadt Musterstadt
+            HRN: DE100000000
+            Parkzone: 500001
             Name der Parkzone: Tarif II
             0,98 EUR 0 % 0,00 EUR 0,98
              Endzeit: 05.08.2026 12:29
-             Nummernschild: GLMS141
-             Transaktions-ID: 1-DE-3387-924226
+             Nummernschild: MAB1234
+             Transaktions-ID: 1-DE-0000-000000
 
             Summe Parkvorgänge:	0,98 EUR	0,00 EUR 0,98
             EasyPark-Dienstleistung  In Rechnung gestellt im Namen und auf Rechnung von EasyPark
@@ -50,7 +50,7 @@ class PdfTextParkingExtractorTest extends TestCase
             MwSt.)
 
              2.Transaktions-ID: 0-DE-EP-
-            243557400
+            000000000
             Tarif II 05.08.2026 - 05.08.2026	0,46 EUR 19% 0,09 EUR 0,55
 
             Summe EasyPark-Dienstleistung:	0,46 EUR	0,09 EUR 0,55
@@ -67,10 +67,10 @@ class PdfTextParkingExtractorTest extends TestCase
 
         $session = $sessions[0];
         $this->assertSame('2026-08-05', $session->date);
-        $this->assertSame('Bergisch Gladbach, Tarif II', $session->location);
+        $this->assertSame('Musterstadt, Tarif II', $session->location);
         $this->assertSame('11:30', $session->startTime);
         $this->assertSame('12:29', $session->endTime);
-        $this->assertSame('GLMS141', $session->licensePlate);
+        $this->assertSame('MAB1234', $session->licensePlate);
     }
 
     /**
@@ -106,13 +106,13 @@ class PdfTextParkingExtractorTest extends TestCase
     public function test_every_session_of_a_longer_invoice_is_read(): void
     {
         $second = <<<'TXT'
-             2.Startzeit: 12.08.2026 09:05	Stadt Köln
-            HRN: DE121978025
-            Parkzone: 514007
+             2.Startzeit: 12.08.2026 09:05	Stadt Beispielstadt
+            HRN: DE100000000
+            Parkzone: 500002
             Name der Parkzone: Tarif I
             2,40 EUR 0 % 0,00 EUR 2,40
              Endzeit: 12.08.2026 11:05
-             Nummernschild: GLMS141
+             Nummernschild: MAB1234
             TXT;
 
         $text = str_replace('Summe Parkvorgänge:', $second."\nSumme Parkvorgänge:", $this->invoice());
@@ -120,7 +120,7 @@ class PdfTextParkingExtractorTest extends TestCase
         $sessions = $this->extractor()->fromText($text);
 
         $this->assertCount(2, $sessions);
-        $this->assertSame('Köln, Tarif I', $sessions[1]->location);
+        $this->assertSame('Beispielstadt, Tarif I', $sessions[1]->location);
         $this->assertEqualsWithDelta(2.40, $sessions[1]->total(), 0.001);
         // The charge names Tarif II, so it stays with the first session.
         $this->assertNull($sessions[1]->fee);

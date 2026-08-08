@@ -125,7 +125,7 @@
     <div id="parking-detail" style="display: none; margin-bottom: 2rem;">
         <div class="glass-panel" style="max-width: 600px;">
             <h3 style="margin-bottom: 1.5rem;">Parkticket erfassen</h3>
-            <form action="{{ route('parking-tickets.store', $car) }}" method="POST" enctype="multipart/form-data">
+            <form id="parking-form" action="{{ route('parking-tickets.store', $car) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="form-group">
                     <input type="text" name="location" placeholder="Wo geparkt? (z. B. Parkhaus Zentrum)" required>
@@ -143,7 +143,10 @@
                 </p>
                 <div class="form-group" style="margin-top: 1rem;">
                     <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Parkschein (PDF oder Foto, optional)</label>
-                    <input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                    <input type="file" name="receipt" id="parking-receipt" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                    @if ($canScanParking)
+                        <p id="parking-scan-status" style="display: none; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></p>
+                    @endif
                 </div>
                 <button type="submit" class="btn-premium" style="width: 100%; margin-top: 1rem;">Speichern</button>
             </form>
@@ -531,7 +534,7 @@
         });
     });
 </script>
-@if ($canScanReceipts || $canScanRepairs)
+@if ($canScanReceipts || $canScanRepairs || $canScanParking)
 <script>
     // Reads a receipt as soon as it is picked and fills in whatever it could
     // find. Only empty fields are touched, so anything already typed wins.
@@ -571,6 +574,13 @@
                     return;
                 }
 
+                // A document can hold more than one entry - filling the form
+                // with the first would quietly drop the rest.
+                if (options.holdsSeveral && options.holdsSeveral(data)) {
+                    show(options.severalMessage);
+                    return;
+                }
+
                 const filled = [];
 
                 for (const [name, label] of Object.entries(options.fields)) {
@@ -599,6 +609,24 @@
                 status: 'fuel-scan-status',
                 url: '{{ route('receipts.scan.fueling') }}',
                 fields: { date: 'Datum', liters: 'Liter', price_total: 'Gesamtpreis' },
+            });
+        @endif
+
+        @if ($canScanParking)
+            wireScanner({
+                form: 'parking-form',
+                file: 'parking-receipt',
+                status: 'parking-scan-status',
+                url: '{{ route('receipts.scan.parking') }}',
+                fields: {
+                    date: 'Datum',
+                    location: 'Ort',
+                    cost: 'Kosten',
+                    start_time: 'Beginn',
+                    end_time: 'Ende',
+                },
+                holdsSeveral: (data) => data.sessions > 1,
+                severalMessage: 'Der Beleg enthält mehrere Parkvorgänge – nimm dafür weiter unten "Anbieter-Rechnung einlesen", dann wird jeder ein eigener Eintrag.',
             });
         @endif
 
